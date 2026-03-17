@@ -79,7 +79,7 @@ const BOX_GEO = new THREE.BoxGeometry(1, 1, 1);
 
 const OriginMarker: React.FC<{ terrain: TerrainConfig, dimensions: any }> = ({ terrain, dimensions }) => {
   return (
-    <group position={[0, terrain.deckHeight, 0]}>
+    <group position={[0, 0, 0]}>
       <mesh position={[0, 0.2, 0]} rotation={[Math.PI, 0, 0]}>
         <coneGeometry args={[0.08, 0.4, 16]} />
         <meshStandardMaterial color="#ef4444" roughness={0.3} metalness={0.2} />

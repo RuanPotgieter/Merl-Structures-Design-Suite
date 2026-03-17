@@ -57,24 +57,7 @@ export const SpecificationsPanel: React.FC<SpecificationsPanelProps> = ({
     const newDeck: DeckConfig = {
       id: `deck-${decks.length + 1}`,
       type: 'standard',
-      width: 4.8,
-      depth: 4.8,
-      originX: 0,
-      originZ: 0,
-      orientation: 0,
-      terrain: {
-        deckHeight: 2.0,
-        groundOffsets: { origin: 0, widthEnd: 0, depthEnd: 0, diagonal: 0 }
-      }
-    };
-    onDecksChange([...decks, newDeck]);
-  };
-
-  const addRaking = () => {
-    const newDeck: DeckConfig = {
-      id: `raking-${decks.length + 1}`,
-      type: 'raking',
-      tiers: 3,
+      handrailType: 'standard',
       width: 4.8,
       depth: 4.8,
       originX: 0,
@@ -181,7 +164,7 @@ export const SpecificationsPanel: React.FC<SpecificationsPanelProps> = ({
   };
 
   return (
-    <div className="flex flex-col h-full bg-white text-[#1f2937]">
+    <div className="flex flex-col bg-white text-[#1f2937]">
       <div className="p-6 pb-0 shrink-0 border-b border-[#e5e7eb] bg-[#f9fafb]">
         <h2 className="text-xl font-bold text-[#111827] tracking-tight mb-1">Project Specifications</h2>
         <p className="text-[#6b7280] text-xs leading-relaxed mb-4">
@@ -190,15 +173,14 @@ export const SpecificationsPanel: React.FC<SpecificationsPanelProps> = ({
         
         <div className="flex gap-1 overflow-x-auto hide-scrollbar -mb-[1px]">
           <button onClick={() => setActiveTab('decks')} className={`px-4 py-2 text-xs font-semibold uppercase tracking-wider rounded-t-md border-b-2 transition-colors whitespace-nowrap ${activeTab === 'decks' ? 'border-[#2563eb] text-[#2563eb] bg-white' : 'border-transparent text-[#6b7280] hover:text-[#374151] hover:bg-[#f3f4f6]'}`}>Decks</button>
-          <button onClick={() => setActiveTab('rakings')} className={`px-4 py-2 text-xs font-semibold uppercase tracking-wider rounded-t-md border-b-2 transition-colors whitespace-nowrap ${activeTab === 'rakings' ? 'border-[#2563eb] text-[#2563eb] bg-white' : 'border-transparent text-[#6b7280] hover:text-[#374151] hover:bg-[#f3f4f6]'}`}>Rakings</button>
           <button onClick={() => setActiveTab('ramps')} className={`px-4 py-2 text-xs font-semibold uppercase tracking-wider rounded-t-md border-b-2 transition-colors whitespace-nowrap ${activeTab === 'ramps' ? 'border-[#2563eb] text-[#2563eb] bg-white' : 'border-transparent text-[#6b7280] hover:text-[#374151] hover:bg-[#f3f4f6]'}`}>Ramps</button>
           <button onClick={() => setActiveTab('handrails')} className={`px-4 py-2 text-xs font-semibold uppercase tracking-wider rounded-t-md border-b-2 transition-colors whitespace-nowrap ${activeTab === 'handrails' ? 'border-[#2563eb] text-[#2563eb] bg-white' : 'border-transparent text-[#6b7280] hover:text-[#374151] hover:bg-[#f3f4f6]'}`}>Handrails</button>
           <button onClick={() => setActiveTab('landings')} className={`px-4 py-2 text-xs font-semibold uppercase tracking-wider rounded-t-md border-b-2 transition-colors whitespace-nowrap ${activeTab === 'landings' ? 'border-[#2563eb] text-[#2563eb] bg-white' : 'border-transparent text-[#6b7280] hover:text-[#374151] hover:bg-[#f3f4f6]'}`}>Landings</button>
         </div>
       </div>
 
-      <div className="flex flex-col gap-6 flex-1 overflow-y-auto p-6 bg-white">
-        {activeTab === 'decks' && decks.filter(d => d.type !== 'raking').map((deck, i) => (
+      <div className="flex flex-col gap-6 p-6 bg-white">
+        {activeTab === 'decks' && decks.map((deck, i) => (
           <div key={deck.id} className="bg-white rounded-lg border border-[#e5e7eb] shadow-sm overflow-hidden">
             <div className="bg-[#f9fafb] px-4 py-3 border-b border-[#e5e7eb] flex justify-between items-center">
               <h3 className="text-sm font-bold text-[#111827] uppercase tracking-wider">Deck {i + 1} <span className="text-[#9ca3af] text-xs ml-1 font-normal">({deck.id})</span></h3>
@@ -212,70 +194,11 @@ export const SpecificationsPanel: React.FC<SpecificationsPanelProps> = ({
                 <h4 className="text-xs font-bold text-[#4b5563] uppercase tracking-wider mb-4 border-b border-[#e5e7eb] pb-2">Dimensions & Position</h4>
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                   <SelectInput 
-                    label="Parent Deck" 
-                    value={deck.parentId || ''} 
-                    onChange={v => updateDeck(deck.id, { parentId: v })}
-                    options={[
-                      {value: '', label: 'None (Absolute Position)'},
-                      ...decks.filter(d => d.id !== deck.id).map(d => ({ value: d.id, label: `Deck ${d.id}` }))
-                    ]}
-                    tooltip="Attach this deck to another deck"
+                    label="Deck Type" 
+                    value={deck.type || 'standard'} 
+                    onChange={v => updateDeck(deck.id, { type: v as any })}
+                    options={[{value: 'standard', label: 'Standard'}, {value: 'raking', label: 'Raking'}]}
                   />
-                  <NumberInput label="Depth (m)" value={deck.depth} onChange={v => updateDeck(deck.id, { depth: v })} tooltip="Main direction length" />
-                  <NumberInput label="Width (m)" value={deck.width} onChange={v => updateDeck(deck.id, { width: v })} tooltip="Cross direction length" />
-                  
-                  {!deck.parentId ? (
-                    <>
-                      <NumberInput label="Origin X (m)" value={deck.originX} onChange={v => updateDeck(deck.id, { originX: v })} tooltip="X-axis position" />
-                      <NumberInput label="Origin Z (m)" value={deck.originZ} onChange={v => updateDeck(deck.id, { originZ: v })} tooltip="Z-axis position" />
-                      <NumberInput label="Orientation (°)" value={deck.orientation} onChange={v => updateDeck(deck.id, { orientation: v })} tooltip="Rotation in degrees" />
-                    </>
-                  ) : (
-                    <>
-                      <SelectInput 
-                        label="Attach Edge" 
-                        value={deck.attachEdge || 'front'} 
-                        onChange={v => updateDeck(deck.id, { attachEdge: v as any })}
-                        options={[
-                          {value: 'front', label: 'Front'},
-                          {value: 'back', label: 'Back'},
-                          {value: 'left', label: 'Left'},
-                          {value: 'right', label: 'Right'}
-                        ]}
-                      />
-                      <NumberInput label="Attach Offset (m)" value={deck.attachOffset || 0} onChange={v => updateDeck(deck.id, { attachOffset: v })} tooltip="Offset along the attached edge" />
-                    </>
-                  )}
-                </div>
-              </div>
-
-              <div>
-                <h4 className="text-xs font-bold text-[#4b5563] uppercase tracking-wider mb-4 border-b border-[#e5e7eb] pb-2">Elevations & Terrain</h4>
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                  <NumberInput label="Datum Height (m)" value={deck.terrain.deckHeight} onChange={v => updateTerrain(deck.id, { deckHeight: v })} tooltip="Height from datum to deck surface" />
-                  <NumberInput label="Origin Ground Offset (m)" value={deck.terrain.groundOffsets.origin} onChange={v => updateGroundOffsets(deck.id, { origin: v })} tooltip="Ground level at origin" />
-                  <NumberInput label="Width End Ground Offset (m)" value={deck.terrain.groundOffsets.widthEnd} onChange={v => updateGroundOffsets(deck.id, { widthEnd: v })} />
-                  <NumberInput label="Depth End Ground Offset (m)" value={deck.terrain.groundOffsets.depthEnd} onChange={v => updateGroundOffsets(deck.id, { depthEnd: v })} />
-                  <NumberInput label="Diagonal Ground Offset (m)" value={deck.terrain.groundOffsets.diagonal} onChange={v => updateGroundOffsets(deck.id, { diagonal: v })} />
-                </div>
-              </div>
-            </div>
-          </div>
-        ))}
-
-        {activeTab === 'rakings' && decks.filter(d => d.type === 'raking').map((deck, i) => (
-          <div key={deck.id} className="bg-white rounded-lg border border-[#e5e7eb] shadow-sm overflow-hidden">
-            <div className="bg-[#f9fafb] px-4 py-3 border-b border-[#e5e7eb] flex justify-between items-center">
-              <h3 className="text-sm font-bold text-[#111827] uppercase tracking-wider">Raking Deck {i + 1} <span className="text-[#9ca3af] text-xs ml-1 font-normal">({deck.id})</span></h3>
-              {decks.length > 1 && (
-                <button onClick={() => removeDeck(deck.id)} className="text-red-500 hover:text-red-700 text-[10px] font-bold uppercase tracking-wider transition-colors">Remove</button>
-              )}
-            </div>
-            
-            <div className="p-5 flex flex-col gap-6">
-              <div>
-                <h4 className="text-xs font-bold text-[#4b5563] uppercase tracking-wider mb-4 border-b border-[#e5e7eb] pb-2">Dimensions & Position</h4>
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                   <SelectInput 
                     label="Parent Deck" 
                     value={deck.parentId || ''} 
@@ -286,14 +209,18 @@ export const SpecificationsPanel: React.FC<SpecificationsPanelProps> = ({
                     ]}
                     tooltip="Attach this deck to another deck"
                   />
-                  <NumberInput label="Tiers" value={deck.tiers || 3} onChange={v => updateDeck(deck.id, { tiers: v as number })} tooltip="Number of stepped tiers" />
-                  <NumberInput label="Width (m)" value={deck.width} onChange={v => updateDeck(deck.id, { width: v })} tooltip="Total width of all tiers" />
+                  {deck.type === 'raking' ? (
+                    <NumberInput label="Tiers" value={deck.tiers || 3} onChange={v => updateDeck(deck.id, { tiers: v as number })} tooltip="Number of stepped tiers" />
+                  ) : (
+                    <NumberInput label="Depth (m)" value={deck.depth || 4.8} onChange={v => updateDeck(deck.id, { depth: v })} tooltip="Main direction length" />
+                  )}
+                  <NumberInput label="Width (m)" value={deck.width || 4.8} onChange={v => updateDeck(deck.id, { width: v })} tooltip="Cross direction length" />
                   
                   {!deck.parentId ? (
                     <>
-                      <NumberInput label="Origin X (m)" value={deck.originX} onChange={v => updateDeck(deck.id, { originX: v })} />
-                      <NumberInput label="Origin Z (m)" value={deck.originZ} onChange={v => updateDeck(deck.id, { originZ: v })} />
-                      <NumberInput label="Orientation (°)" value={deck.orientation} onChange={v => updateDeck(deck.id, { orientation: v })} />
+                      <NumberInput label="Origin X (m)" value={deck.originX ?? 0} onChange={v => updateDeck(deck.id, { originX: v })} tooltip="X-axis position" />
+                      <NumberInput label="Origin Z (m)" value={deck.originZ ?? 0} onChange={v => updateDeck(deck.id, { originZ: v })} tooltip="Z-axis position" />
+                      <NumberInput label="Orientation (°)" value={deck.orientation ?? 0} onChange={v => updateDeck(deck.id, { orientation: v })} tooltip="Rotation in degrees" />
                     </>
                   ) : (
                     <>
@@ -311,17 +238,23 @@ export const SpecificationsPanel: React.FC<SpecificationsPanelProps> = ({
                       <NumberInput label="Attach Offset (m)" value={deck.attachOffset || 0} onChange={v => updateDeck(deck.id, { attachOffset: v })} tooltip="Offset along the attached edge" />
                     </>
                   )}
+                  <SelectInput 
+                    label="Handrail Type" 
+                    value={deck.handrailType || 'standard'} 
+                    onChange={v => updateDeck(deck.id, { handrailType: v as any })}
+                    options={[{value: 'standard', label: 'Standard'}, {value: 'none', label: 'None'}]}
+                  />
                 </div>
               </div>
 
               <div>
                 <h4 className="text-xs font-bold text-[#4b5563] uppercase tracking-wider mb-4 border-b border-[#e5e7eb] pb-2">Elevations & Terrain</h4>
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                  <NumberInput label="Datum Height (m)" value={deck.terrain.deckHeight} onChange={v => updateTerrain(deck.id, { deckHeight: v })} />
-                  <NumberInput label="Origin Ground Offset (m)" value={deck.terrain.groundOffsets.origin} onChange={v => updateGroundOffsets(deck.id, { origin: v })} />
-                  <NumberInput label="Width End Ground Offset (m)" value={deck.terrain.groundOffsets.widthEnd} onChange={v => updateGroundOffsets(deck.id, { widthEnd: v })} />
-                  <NumberInput label="Depth End Ground Offset (m)" value={deck.terrain.groundOffsets.depthEnd} onChange={v => updateGroundOffsets(deck.id, { depthEnd: v })} />
-                  <NumberInput label="Diagonal Ground Offset (m)" value={deck.terrain.groundOffsets.diagonal} onChange={v => updateGroundOffsets(deck.id, { diagonal: v })} />
+                  <NumberInput label="Datum Height (m)" value={deck.terrain.deckHeight ?? 2.0} onChange={v => updateTerrain(deck.id, { deckHeight: v })} tooltip="Height from datum to deck surface" />
+                  <NumberInput label="Origin Ground Offset (m)" value={deck.terrain.groundOffsets.origin ?? 0} onChange={v => updateGroundOffsets(deck.id, { origin: v })} tooltip="Ground level at origin" />
+                  <NumberInput label="Width End Ground Offset (m)" value={deck.terrain.groundOffsets.widthEnd ?? 0} onChange={v => updateGroundOffsets(deck.id, { widthEnd: v })} />
+                  <NumberInput label="Depth End Ground Offset (m)" value={deck.terrain.groundOffsets.depthEnd ?? 0} onChange={v => updateGroundOffsets(deck.id, { depthEnd: v })} />
+                  <NumberInput label="Diagonal Ground Offset (m)" value={deck.terrain.groundOffsets.diagonal ?? 0} onChange={v => updateGroundOffsets(deck.id, { diagonal: v })} />
                 </div>
               </div>
             </div>
@@ -433,17 +366,6 @@ export const SpecificationsPanel: React.FC<SpecificationsPanelProps> = ({
               className="w-full py-4 border-2 border-dashed border-[#d1d5db] text-[#6b7280] hover:text-[#2563eb] hover:border-[#2563eb] hover:bg-[#eff6ff] rounded-lg font-bold uppercase tracking-wider transition-all text-xs shadow-sm"
             >
               + Add Another Deck
-            </button>
-          </div>
-        )}
-
-        {activeTab === 'rakings' && (
-          <div className="mt-2">
-            <button 
-              onClick={addRaking}
-              className="w-full py-4 border-2 border-dashed border-[#d1d5db] text-[#6b7280] hover:text-[#2563eb] hover:border-[#2563eb] hover:bg-[#eff6ff] rounded-lg font-bold uppercase tracking-wider transition-all text-xs shadow-sm"
-            >
-              + Add Another Raking Deck
             </button>
           </div>
         )}

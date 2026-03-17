@@ -104,7 +104,7 @@ const App: React.FC = () => {
          
          {/* Specifications View */}
          <div className={`absolute inset-0 bg-[#f9fafb] z-30 transition-opacity duration-300 overflow-y-auto ${viewMode === 'specs' ? 'opacity-100' : 'opacity-0 pointer-events-none'}`}>
-            <div className="max-w-4xl mx-auto py-8 px-4 lg:px-8 h-full flex flex-col">
+            <div className="max-w-4xl mx-auto py-8 px-4 lg:px-8 min-h-full flex flex-col">
                <div className="bg-white rounded-xl shadow-sm border border-[#e5e7eb] overflow-hidden flex-1 flex flex-col">
                   <SpecificationsPanel 
                     decks={decks} onDecksChange={setDecks} 
