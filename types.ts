@@ -60,6 +60,7 @@ export interface HandrailConfig {
   corner: 'topLeft' | 'topRight' | 'bottomLeft' | 'bottomRight';
   offset: number | '';
   length: number | '';
+  type?: 'standard' | 'heavy-duty' | 'decorative';
 }
 
 export interface Project {
@@ -76,7 +77,7 @@ export interface Project {
 export interface DeckConfig {
   id: string;
   type?: 'standard' | 'raking';
-  tiers?: number;
+  tiers?: number | '';
   handrailType?: 'standard' | 'none';
   width: number | '';
   depth: number | '';

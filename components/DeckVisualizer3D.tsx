@@ -21,13 +21,10 @@ import { getGroundYAt } from '../utils/deckLogic';
 
 // --- Professional CAD Materials ---
 
-const MAT_SILVER = new THREE.MeshPhysicalMaterial({
+const MAT_SILVER = new THREE.MeshStandardMaterial({
   color: "#C0C0C0",
   metalness: 0.95,
   roughness: 0.2,
-  envMapIntensity: 1.0,
-  clearcoat: 0.1,
-  clearcoatRoughness: 0.4,
 });
 
 const MAT_GREY = new THREE.MeshPhysicalMaterial({
@@ -153,7 +150,7 @@ const InfrastructureGroup: React.FC<{ feet: Foot[]; ledgers: Ledger[]; braces: a
         // Standards
         f.assembly.standards.forEach((sMm, index) => {
           const sH = sMm / 1000;
-          const stdColor = (COMPONENT_COLORS.STANDARDS as any)[sH] ? (COMPONENT_COLORS.STANDARDS as any)[sH].replace('#', '') : MAT_SILVER.color.getHexString();
+          const stdColor = (COMPONENT_COLORS.STANDARDS as any)[sH] ? (COMPONENT_COLORS.STANDARDS as any)[sH].replace('#', '') : "C0C0C0";
           stds.push({ 
             pos: [x, curY + sH / 2, y], 
             h: sH, 
@@ -257,7 +254,7 @@ const InfrastructureGroup: React.FC<{ feet: Foot[]; ledgers: Ledger[]; braces: a
         _TEMP_QUAT.setFromEuler(new THREE.Euler(...l.rot));
         _TEMP_MATRIX.compose(new THREE.Vector3(...l.pos), _TEMP_QUAT, _TEMP_VECTOR.set(0.015, l.len, 0.015));
         meshLedger.current!.setMatrixAt(i, _TEMP_MATRIX);
-        meshLedger.current!.setColorAt(i, _TEMP_COLOR.set(l.color));
+        meshLedger.current!.setColorAt(i, _TEMP_COLOR.set(`#${l.color.replace('#', '')}`));
       });
       meshLedger.current.instanceMatrix.needsUpdate = true;
       if (meshLedger.current.instanceColor) meshLedger.current.instanceColor.needsUpdate = true;
@@ -268,7 +265,7 @@ const InfrastructureGroup: React.FC<{ feet: Foot[]; ledgers: Ledger[]; braces: a
         if (i >= meshBrace.current!.count) return;
         _TEMP_MATRIX.compose(new THREE.Vector3(...b.pos), b.quat, _TEMP_VECTOR.set(0.04, b.len, 0.04));
         meshBrace.current!.setMatrixAt(i, _TEMP_MATRIX);
-        meshBrace.current!.setColorAt(i, _TEMP_COLOR.set(`#${b.color}`));
+        meshBrace.current!.setColorAt(i, _TEMP_COLOR.set(`#${b.color.replace('#', '')}`));
       });
       meshBrace.current.instanceMatrix.needsUpdate = true;
       if (meshBrace.current.instanceColor) meshBrace.current.instanceColor.needsUpdate = true;
@@ -311,7 +308,7 @@ const HandrailGroup: React.FC<{ uprights: any[]; handrails: any[] }> = ({ uprigh
         const h = 1.3;
         const cy = u.zDeck + 0.45; // mid point of (-0.2 to 1.1)
         
-        if (u.type === 'INSIDE_CORNER' || u.type === 'DOUBLE_UPRIGHT') {
+        if (u.type === 'DOUBLE_UPRIGHT' || u.type === 'DOUBLE') {
           // Double upright: offset slightly
           const offset = 0.05; // 50mm offset
           upInsts.push({

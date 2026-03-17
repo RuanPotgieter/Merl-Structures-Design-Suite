@@ -73,12 +73,7 @@ const App: React.FC = () => {
       
       {/* Top Header Terminal */}
       <div className="h-14 shrink-0 flex items-center justify-between px-6 z-50 glass-panel border-b border-white/5">
-         <div className="flex items-center gap-10">
-            <div className="flex flex-col">
-               <span className="text-[14px] font-display font-black tracking-[0.2em] text-white">MERL MAGIC</span>
-               <span className="text-[8px] font-mono text-white/30 tracking-widest uppercase">Deck Builder v2.5.0</span>
-            </div>
-            
+         <div className="flex items-center gap-10 w-full justify-between">
             <ProjectManager 
               currentProject={currentProject}
               onLoadProject={handleLoadProject}
@@ -89,18 +84,16 @@ const App: React.FC = () => {
               handrails={handrails}
             />
             
+            <div className="flex flex-col items-center absolute left-1/2 -translate-x-1/2">
+               <span className="text-[16px] font-display font-black tracking-[0.2em] text-white">MERL STRUCTURES DESIGN SUITE</span>
+               <span className="text-[8px] font-mono text-white/30 tracking-widest uppercase">Professional Engineering App</span>
+            </div>
+            
             <nav className="flex bg-white/5 p-1 rounded-lg border border-white/5">
                <button onClick={() => switchView('specifications')} className={`px-5 py-1 rounded-md text-[10px] font-bold uppercase tracking-widest transition-all ${viewMode === 'specifications' ? 'bg-[#00d2ff] text-black' : 'text-white/40 hover:text-white'}`}>Specifications</button>
                <button onClick={() => switchView('design')} className={`px-5 py-1 rounded-md text-[10px] font-bold uppercase tracking-widest transition-all ${viewMode === 'design' ? 'bg-[#00d2ff] text-black' : 'text-white/40 hover:text-white'}`}>3D View</button>
                <button onClick={() => switchView('analysis')} className={`px-5 py-1 rounded-md text-[10px] font-bold uppercase tracking-widest transition-all ${viewMode === 'analysis' ? 'bg-[#00d2ff] text-black' : 'text-white/40 hover:text-white'}`}>Parts List</button>
             </nav>
-         </div>
-
-         <div className="flex items-center gap-4">
-            <div className="flex items-center gap-2 mr-4">
-               <span className="w-2 h-2 rounded-full bg-green-500 animate-pulse"></span>
-               <span className="text-[9px] font-mono text-white/40 uppercase tracking-tighter">System Ready</span>
-            </div>
          </div>
       </div>
 
@@ -124,6 +117,35 @@ const App: React.FC = () => {
                <div className="glass-panel px-4 py-2 lg:px-5 lg:py-3 rounded border-l-2 border-white/20">
                   <span className="text-[8px] lg:text-[9px] font-mono text-white/30 uppercase block mb-1">Total feet required</span>
                   <span className="text-xl lg:text-2xl font-mono font-bold text-white tracking-tighter">{calculationResult.calculatedFeetCount} <span className="text-xs lg:text-sm font-normal text-white/40">Units</span></span>
+               </div>
+            </div>
+
+            {/* View Toggles Drawer */}
+            <div className={`absolute right-0 top-1/2 -translate-y-1/2 transition-transform duration-300 z-30 flex ${isMobileMenuOpen ? 'translate-x-0' : 'translate-x-[calc(100%-2rem)]'}`}>
+               <button 
+                  onClick={() => setIsMobileMenuOpen(!isMobileMenuOpen)}
+                  className="w-8 h-24 bg-black/80 border border-white/10 rounded-l-lg flex items-center justify-center text-white/50 hover:text-white hover:bg-black transition-colors"
+               >
+                  <span className="transform -rotate-90 text-[10px] font-bold tracking-widest uppercase whitespace-nowrap">Layers</span>
+               </button>
+               <div className="bg-black/80 backdrop-blur-md border border-white/10 p-4 rounded-l-lg flex flex-col gap-3 w-48">
+                  <h4 className="text-[10px] font-bold text-white/40 uppercase tracking-widest mb-2 border-b border-white/10 pb-2">Visibility</h4>
+                  <label className="flex items-center gap-2 cursor-pointer group">
+                     <input type="checkbox" checked={layers.structure} onChange={e => setLayers({...layers, structure: e.target.checked})} className="accent-cyan-500" />
+                     <span className="text-xs text-white/70 group-hover:text-white transition-colors">Structure</span>
+                  </label>
+                  <label className="flex items-center gap-2 cursor-pointer group">
+                     <input type="checkbox" checked={layers.ledgers} onChange={e => setLayers({...layers, ledgers: e.target.checked})} className="accent-cyan-500" />
+                     <span className="text-xs text-white/70 group-hover:text-white transition-colors">Ledgers</span>
+                  </label>
+                  <label className="flex items-center gap-2 cursor-pointer group">
+                     <input type="checkbox" checked={layers.terrain} onChange={e => setLayers({...layers, terrain: e.target.checked})} className="accent-cyan-500" />
+                     <span className="text-xs text-white/70 group-hover:text-white transition-colors">Terrain</span>
+                  </label>
+                  <label className="flex items-center gap-2 cursor-pointer group">
+                     <input type="checkbox" checked={layers.rostrums} onChange={e => setLayers({...layers, rostrums: e.target.checked})} className="accent-cyan-500" />
+                     <span className="text-xs text-white/70 group-hover:text-white transition-colors">Rostrums</span>
+                  </label>
                </div>
             </div>
          </div>

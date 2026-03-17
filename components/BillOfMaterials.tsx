@@ -129,26 +129,28 @@ export const BillOfMaterials: React.FC<BillOfMaterialsProps> = ({ data }) => {
   }));
 
   return (
-    <div className="w-full text-[12px] font-sans bg-white text-black overflow-x-auto border border-gray-300 shadow-sm">
+    <div className="w-full text-[13px] font-sans bg-white text-black overflow-x-auto border border-[#d4d4d4] shadow-sm">
        <table className="w-full border-collapse">
           <thead>
-             <tr className="bg-[#f3f2f1] border-b-2 border-gray-400 text-gray-700 text-left">
-                <th className="py-1.5 px-3 border-r border-gray-300 font-semibold select-none w-24">Part ID</th>
-                <th className="py-1.5 px-3 border-r border-gray-300 font-semibold select-none w-32">Category</th>
-                <th className="py-1.5 px-3 border-r border-gray-300 font-semibold select-none">Description</th>
-                <th className="py-1.5 px-3 font-semibold select-none text-right w-20">Qty</th>
+             <tr className="bg-[#f3f2f1] border-b border-[#d4d4d4] text-[#323130] text-left">
+                <th className="py-1 px-2 border-r border-[#d4d4d4] font-normal select-none w-8 text-center bg-[#e1dfdd] border-b-[#d4d4d4]"></th>
+                <th className="py-1 px-2 border-r border-[#d4d4d4] font-normal select-none w-24 hover:bg-[#e1dfdd] cursor-pointer">Part ID</th>
+                <th className="py-1 px-2 border-r border-[#d4d4d4] font-normal select-none w-32 hover:bg-[#e1dfdd] cursor-pointer">Category</th>
+                <th className="py-1 px-2 border-r border-[#d4d4d4] font-normal select-none hover:bg-[#e1dfdd] cursor-pointer">Description</th>
+                <th className="py-1 px-2 font-normal select-none text-right w-20 hover:bg-[#e1dfdd] cursor-pointer">Qty</th>
              </tr>
           </thead>
           <tbody>
              {rows.map((row, i) => (
-                <tr key={i} className={`border-b border-gray-200 hover:bg-[#e5f3ff] ${i % 2 === 0 ? 'bg-white' : 'bg-[#faf9f8]'}`}>
-                   <td className="py-1.5 px-3 border-r border-gray-200 font-mono text-blue-700">{row.id}</td>
-                   <td className="py-1.5 px-3 border-r border-gray-200 text-gray-600">{row.category}</td>
-                   <td className="py-1.5 px-3 border-r border-gray-200 flex items-center gap-2">
-                      {row.color && <div className="w-2.5 h-2.5 rounded-sm border border-gray-300" style={{ backgroundColor: row.color }}></div>}
+                <tr key={i} className={`border-b border-[#e1dfdd] hover:bg-[#f3f2f1] ${i % 2 === 0 ? 'bg-white' : 'bg-white'}`}>
+                   <td className="py-1 px-2 border-r border-[#d4d4d4] text-[#605e5c] text-center bg-[#f3f2f1]">{i + 1}</td>
+                   <td className="py-1 px-2 border-r border-[#e1dfdd] font-mono text-[#0078d4]">{row.id}</td>
+                   <td className="py-1 px-2 border-r border-[#e1dfdd] text-[#323130]">{row.category}</td>
+                   <td className="py-1 px-2 border-r border-[#e1dfdd] flex items-center gap-2 text-[#323130]">
+                      {row.color && <div className="w-2.5 h-2.5 rounded-sm border border-[#c8c6c4]" style={{ backgroundColor: row.color }}></div>}
                       {row.desc}
                    </td>
-                   <td className="py-1.5 px-3 text-right font-medium">{row.qty}</td>
+                   <td className="py-1 px-2 text-right text-[#323130]">{row.qty}</td>
                 </tr>
              ))}
           </tbody>

@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useState } from 'react';
 import { DeckConfig, RampConfig, HandrailConfig, TerrainConfig } from '../types';
 
 interface SpecificationsPanelProps {
@@ -43,6 +43,7 @@ const SelectInput: React.FC<{ value: string; onChange: (v: string) => void, labe
 export const SpecificationsPanel: React.FC<SpecificationsPanelProps> = ({
   decks, onDecksChange, ramps, onRampsChange, handrails, onHandrailsChange, onComplete
 }) => {
+  const [activeTab, setActiveTab] = useState<'decks' | 'rakings' | 'ramps' | 'handrails' | 'landings'>('decks');
 
   const addDeck = () => {
     const newDeck: DeckConfig = {
@@ -139,7 +140,8 @@ export const SpecificationsPanel: React.FC<SpecificationsPanelProps> = ({
       side: 'top',
       corner: 'topLeft',
       offset: 0,
-      length: 2.4
+      length: 2.4,
+      type: 'standard'
     };
     onHandrailsChange([...handrails, newHandrail]);
   };
@@ -153,7 +155,7 @@ export const SpecificationsPanel: React.FC<SpecificationsPanelProps> = ({
   };
 
   return (
-    <div className="max-w-6xl mx-auto px-4 py-8 flex flex-col gap-8">
+    <div className="max-w-6xl mx-auto px-4 py-8 flex flex-col gap-8 h-full">
       <div className="flex justify-between items-end">
         <div>
           <h2 className="text-3xl font-display font-black text-white uppercase tracking-tight mb-2">Specifications</h2>
@@ -164,8 +166,16 @@ export const SpecificationsPanel: React.FC<SpecificationsPanelProps> = ({
         </div>
       </div>
 
-      <div className="flex flex-col gap-6">
-        {decks.map((deck, i) => (
+      <div className="flex gap-2 border-b border-white/10 pb-2">
+        <button onClick={() => setActiveTab('decks')} className={`px-4 py-2 text-xs font-bold uppercase tracking-widest rounded ${activeTab === 'decks' ? 'bg-cyan-500 text-black' : 'text-white/40 hover:text-white'}`}>Decks</button>
+        <button onClick={() => setActiveTab('rakings')} className={`px-4 py-2 text-xs font-bold uppercase tracking-widest rounded ${activeTab === 'rakings' ? 'bg-cyan-500 text-black' : 'text-white/40 hover:text-white'}`}>Rakings</button>
+        <button onClick={() => setActiveTab('ramps')} className={`px-4 py-2 text-xs font-bold uppercase tracking-widest rounded ${activeTab === 'ramps' ? 'bg-cyan-500 text-black' : 'text-white/40 hover:text-white'}`}>Ramps</button>
+        <button onClick={() => setActiveTab('handrails')} className={`px-4 py-2 text-xs font-bold uppercase tracking-widest rounded ${activeTab === 'handrails' ? 'bg-cyan-500 text-black' : 'text-white/40 hover:text-white'}`}>Handrails</button>
+        <button onClick={() => setActiveTab('landings')} className={`px-4 py-2 text-xs font-bold uppercase tracking-widest rounded ${activeTab === 'landings' ? 'bg-cyan-500 text-black' : 'text-white/40 hover:text-white'}`}>Landings</button>
+      </div>
+
+      <div className="flex flex-col gap-6 flex-1 overflow-y-auto pr-2">
+        {activeTab === 'decks' && decks.filter(d => d.type !== 'raking').map((deck, i) => (
           <div key={deck.id} className="glass-panel rounded-lg border border-white/10 overflow-hidden">
             <div className="bg-white/5 px-4 py-3 border-b border-white/10 flex justify-between items-center">
               <h3 className="text-base font-display font-black text-white uppercase tracking-widest">Deck {i + 1} <span className="text-white/30 text-xs ml-2">({deck.id})</span></h3>
@@ -184,11 +194,7 @@ export const SpecificationsPanel: React.FC<SpecificationsPanelProps> = ({
                     onChange={v => updateDeck(deck.id, { type: v as any })}
                     options={[{value: 'standard', label: 'Standard'}, {value: 'raking', label: 'Raking'}]}
                   />
-                  {deck.type === 'raking' ? (
-                    <NumberInput label="Tiers" value={deck.tiers || 3} onChange={v => updateDeck(deck.id, { tiers: v as number })} />
-                  ) : (
-                    <NumberInput label="Depth (m)" value={deck.depth} onChange={v => updateDeck(deck.id, { depth: v })} />
-                  )}
+                  <NumberInput label="Depth (m)" value={deck.depth} onChange={v => updateDeck(deck.id, { depth: v })} />
                   <NumberInput label="Width (m)" value={deck.width} onChange={v => updateDeck(deck.id, { width: v })} />
                   <NumberInput label="Origin X (m)" value={deck.originX} onChange={v => updateDeck(deck.id, { originX: v })} />
                   <NumberInput label="Origin Z (m)" value={deck.originZ} onChange={v => updateDeck(deck.id, { originZ: v })} />
@@ -206,114 +212,168 @@ export const SpecificationsPanel: React.FC<SpecificationsPanelProps> = ({
                   <NumberInput label="Diagonal Ground Offset" value={deck.terrain.groundOffsets.diagonal} onChange={v => updateGroundOffsets(deck.id, { diagonal: v })} />
                 </div>
               </div>
-
-              <div className="col-span-1 md:col-span-2 lg:col-span-4 mt-2">
-                <div className="flex justify-between items-center mb-3 border-b border-white/10 pb-1.5">
-                  <h4 className="text-[10px] font-bold text-white/40 uppercase tracking-widest">Handrails</h4>
-                  <button onClick={() => addHandrail(deck.id)} className="text-cyan-400 hover:text-cyan-300 text-[10px] font-bold uppercase tracking-widest">+ Add Handrail</button>
-                </div>
-                
-                <div className="flex flex-col gap-3">
-                  {handrails.filter(h => h.deckId === deck.id).map((handrail, j) => (
-                    <div key={handrail.id} className="bg-black/40 border border-cyan-900/40 rounded-md p-3 relative">
-                      <button onClick={() => removeHandrail(handrail.id)} className="absolute top-1.5 right-2 text-red-500 hover:text-red-400 font-bold text-sm">✕</button>
-                      <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
-                        <SelectInput 
-                          label="Side" 
-                          value={handrail.side} 
-                          onChange={v => updateHandrail(handrail.id, { side: v as any })}
-                          options={[{value: 'top', label: 'Top'}, {value: 'bottom', label: 'Bottom'}, {value: 'left', label: 'Left'}, {value: 'right', label: 'Right'}]}
-                        />
-                        <SelectInput 
-                          label="Measure From" 
-                          value={handrail.corner} 
-                          onChange={v => updateHandrail(handrail.id, { corner: v as any })}
-                          options={[{value: 'topLeft', label: 'Top Left'}, {value: 'topRight', label: 'Top Right'}, {value: 'bottomLeft', label: 'Bottom Left'}, {value: 'bottomRight', label: 'Bottom Right'}]}
-                        />
-                        <NumberInput label="Offset (m)" value={handrail.offset} onChange={v => updateHandrail(handrail.id, { offset: v })} />
-                        <NumberInput label="Length (m)" value={handrail.length} onChange={v => updateHandrail(handrail.id, { length: v })} />
-                      </div>
-                    </div>
-                  ))}
-                  {handrails.filter(h => h.deckId === deck.id).length === 0 && (
-                    <p className="text-white/20 text-[10px] italic font-mono">No handrails added to this deck.</p>
-                  )}
-                </div>
-              </div>
-
-              <div className="col-span-1 md:col-span-2 lg:col-span-4 mt-2">
-                <div className="flex justify-between items-center mb-3 border-b border-white/10 pb-1.5">
-                  <h4 className="text-[10px] font-bold text-white/40 uppercase tracking-widest">Access Ramps</h4>
-                  <button onClick={() => addRamp(deck.id)} className="text-cyan-400 hover:text-cyan-300 text-[10px] font-bold uppercase tracking-widest">+ Add Ramp</button>
-                </div>
-                
-                <div className="flex flex-col gap-3">
-                  {ramps.filter(r => r.deckId === deck.id).map((ramp, j) => (
-                    <div key={ramp.id} className="bg-black/40 border border-cyan-900/40 rounded-md p-3 relative">
-                      <button onClick={() => removeRamp(ramp.id)} className="absolute top-1.5 right-2 text-red-500 hover:text-red-400 font-bold text-sm">✕</button>
-                      <div className="grid grid-cols-2 lg:grid-cols-5 gap-3">
-                        <SelectInput 
-                          label="Side" 
-                          value={ramp.side} 
-                          onChange={v => updateRamp(ramp.id, { side: v as any })}
-                          options={[{value: 'top', label: 'Top'}, {value: 'bottom', label: 'Bottom'}, {value: 'left', label: 'Left'}, {value: 'right', label: 'Right'}]}
-                        />
-                        <SelectInput 
-                          label="Measure From" 
-                          value={ramp.corner} 
-                          onChange={v => updateRamp(ramp.id, { corner: v as any })}
-                          options={[{value: 'topLeft', label: 'Top Left'}, {value: 'topRight', label: 'Top Right'}, {value: 'bottomLeft', label: 'Bottom Left'}, {value: 'bottomRight', label: 'Bottom Right'}]}
-                        />
-                        <NumberInput label="Offset Inward (m)" value={ramp.offset} onChange={v => updateRamp(ramp.id, { offset: v })} />
-                        <NumberInput label="Width (m)" value={ramp.width} onChange={v => updateRamp(ramp.id, { width: v })} />
-                        <NumberInput label="Length (m)" value={ramp.length} onChange={v => updateRamp(ramp.id, { length: v })} />
-                      </div>
-                      
-                      <div className="mt-3 border-t border-white/5 pt-3">
-                        <div className="flex justify-between items-center mb-2">
-                          <h5 className="text-[9px] font-bold text-white/30 uppercase tracking-widest">Landing Pads</h5>
-                          <button onClick={() => addLandingPad(ramp.id)} className="text-cyan-500 hover:text-cyan-400 text-[9px] font-bold uppercase tracking-widest">+ Add Landing Pad</button>
-                        </div>
-                        <div className="flex flex-col gap-2">
-                          {(ramp.landingPads || []).map(pad => (
-                            <div key={pad.id} className="flex gap-2 items-end bg-black/20 p-2 rounded relative">
-                              <button onClick={() => removeLandingPad(ramp.id, pad.id)} className="absolute top-1 right-1 text-red-500 hover:text-red-400 font-bold text-xs">✕</button>
-                              <div className="flex-1"><NumberInput label="Start Offset (m)" value={pad.offset} onChange={v => updateLandingPad(ramp.id, pad.id, { offset: Number(v) })} /></div>
-                              <div className="flex-1"><NumberInput label="Length (m)" value={pad.length} onChange={v => updateLandingPad(ramp.id, pad.id, { length: Number(v) })} /></div>
-                            </div>
-                          ))}
-                          {(!ramp.landingPads || ramp.landingPads.length === 0) && (
-                            <p className="text-white/20 text-[9px] italic font-mono">No landing pads added.</p>
-                          )}
-                        </div>
-                      </div>
-
-                    </div>
-                  ))}
-                  {ramps.filter(r => r.deckId === deck.id).length === 0 && (
-                    <p className="text-white/20 text-[10px] italic font-mono">No ramps added to this deck.</p>
-                  )}
-                </div>
-              </div>
-
             </div>
           </div>
         ))}
 
-        <div className="flex justify-between items-center gap-4 mt-4">
-          <button 
-            onClick={addDeck}
-            className="flex-1 py-4 border-2 border-dashed border-white/10 text-white/40 hover:text-white hover:border-white/30 hover:bg-white/5 rounded-lg font-black uppercase tracking-widest transition-all text-xs"
-          >
-            + Add Another Deck
-          </button>
-          <button 
-            onClick={onComplete}
-            className="flex-1 py-4 bg-[#00d2ff] text-black font-black uppercase tracking-widest text-xs rounded-lg hover:bg-white transition-colors"
-          >
-            Generate 3D Model
-          </button>
-        </div>
+        {activeTab === 'rakings' && decks.filter(d => d.type === 'raking').map((deck, i) => (
+          <div key={deck.id} className="glass-panel rounded-lg border border-white/10 overflow-hidden">
+            <div className="bg-white/5 px-4 py-3 border-b border-white/10 flex justify-between items-center">
+              <h3 className="text-base font-display font-black text-white uppercase tracking-widest">Raking Deck {i + 1} <span className="text-white/30 text-xs ml-2">({deck.id})</span></h3>
+              {decks.length > 1 && (
+                <button onClick={() => removeDeck(deck.id)} className="text-red-400 hover:text-red-300 text-[10px] font-bold uppercase tracking-widest">Remove Deck</button>
+              )}
+            </div>
+            
+            <div className="p-4 grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+              <div className="col-span-1 md:col-span-2 lg:col-span-4">
+                <h4 className="text-[10px] font-bold text-white/40 uppercase tracking-widest mb-3 border-b border-white/10 pb-1.5">Dimensions & Position</h4>
+                <div className="grid grid-cols-2 lg:grid-cols-5 gap-3">
+                  <SelectInput 
+                    label="Deck Type" 
+                    value={deck.type || 'standard'} 
+                    onChange={v => updateDeck(deck.id, { type: v as any })}
+                    options={[{value: 'standard', label: 'Standard'}, {value: 'raking', label: 'Raking'}]}
+                  />
+                  <NumberInput label="Tiers" value={deck.tiers || 3} onChange={v => updateDeck(deck.id, { tiers: v as number })} />
+                  <NumberInput label="Width (m)" value={deck.width} onChange={v => updateDeck(deck.id, { width: v })} />
+                  <NumberInput label="Origin X (m)" value={deck.originX} onChange={v => updateDeck(deck.id, { originX: v })} />
+                  <NumberInput label="Origin Z (m)" value={deck.originZ} onChange={v => updateDeck(deck.id, { originZ: v })} />
+                  <NumberInput label="Orientation (deg)" value={deck.orientation} onChange={v => updateDeck(deck.id, { orientation: v })} />
+                </div>
+              </div>
+
+              <div className="col-span-1 md:col-span-2 lg:col-span-4">
+                <h4 className="text-[10px] font-bold text-white/40 uppercase tracking-widest mb-3 border-b border-white/10 pb-1.5">Elevations & Terrain</h4>
+                <div className="grid grid-cols-2 lg:grid-cols-5 gap-3">
+                  <NumberInput label="Datum Height (m)" value={deck.terrain.deckHeight} onChange={v => updateTerrain(deck.id, { deckHeight: v })} />
+                  <NumberInput label="Origin Ground Offset" value={deck.terrain.groundOffsets.origin} onChange={v => updateGroundOffsets(deck.id, { origin: v })} />
+                  <NumberInput label="Width End Ground Offset" value={deck.terrain.groundOffsets.widthEnd} onChange={v => updateGroundOffsets(deck.id, { widthEnd: v })} />
+                  <NumberInput label="Depth End Ground Offset" value={deck.terrain.groundOffsets.depthEnd} onChange={v => updateGroundOffsets(deck.id, { depthEnd: v })} />
+                  <NumberInput label="Diagonal Ground Offset" value={deck.terrain.groundOffsets.diagonal} onChange={v => updateGroundOffsets(deck.id, { diagonal: v })} />
+                </div>
+              </div>
+            </div>
+          </div>
+        ))}
+
+        {activeTab === 'ramps' && decks.map((deck, i) => (
+          <div key={deck.id} className="glass-panel rounded-lg border border-white/10 overflow-hidden">
+            <div className="bg-white/5 px-4 py-3 border-b border-white/10 flex justify-between items-center">
+              <h3 className="text-base font-display font-black text-white uppercase tracking-widest">Ramps for Deck {i + 1} <span className="text-white/30 text-xs ml-2">({deck.id})</span></h3>
+              <button onClick={() => addRamp(deck.id)} className="text-cyan-400 hover:text-cyan-300 text-[10px] font-bold uppercase tracking-widest">+ Add Ramp</button>
+            </div>
+            <div className="p-4 flex flex-col gap-3">
+              {ramps.filter(r => r.deckId === deck.id).map((ramp, j) => (
+                <div key={ramp.id} className="bg-black/40 border border-cyan-900/40 rounded-md p-3 relative">
+                  <button onClick={() => removeRamp(ramp.id)} className="absolute top-1.5 right-2 text-red-500 hover:text-red-400 font-bold text-sm">✕</button>
+                  <div className="grid grid-cols-2 lg:grid-cols-5 gap-3">
+                    <SelectInput 
+                      label="Side" 
+                      value={ramp.side} 
+                      onChange={v => updateRamp(ramp.id, { side: v as any })}
+                      options={[{value: 'top', label: 'Top'}, {value: 'bottom', label: 'Bottom'}, {value: 'left', label: 'Left'}, {value: 'right', label: 'Right'}]}
+                    />
+                    <SelectInput 
+                      label="Measure From" 
+                      value={ramp.corner} 
+                      onChange={v => updateRamp(ramp.id, { corner: v as any })}
+                      options={[{value: 'topLeft', label: 'Top Left'}, {value: 'topRight', label: 'Top Right'}, {value: 'bottomLeft', label: 'Bottom Left'}, {value: 'bottomRight', label: 'Bottom Right'}]}
+                    />
+                    <NumberInput label="Offset Inward (m)" value={ramp.offset} onChange={v => updateRamp(ramp.id, { offset: v })} />
+                    <NumberInput label="Width (m)" value={ramp.width} onChange={v => updateRamp(ramp.id, { width: v })} />
+                    <NumberInput label="Length (m)" value={ramp.length} onChange={v => updateRamp(ramp.id, { length: v })} />
+                  </div>
+                </div>
+              ))}
+              {ramps.filter(r => r.deckId === deck.id).length === 0 && (
+                <p className="text-white/20 text-[10px] italic font-mono">No ramps added to this deck.</p>
+              )}
+            </div>
+          </div>
+        ))}
+
+        {activeTab === 'handrails' && decks.map((deck, i) => (
+          <div key={deck.id} className="glass-panel rounded-lg border border-white/10 overflow-hidden">
+            <div className="bg-white/5 px-4 py-3 border-b border-white/10 flex justify-between items-center">
+              <h3 className="text-base font-display font-black text-white uppercase tracking-widest">Handrails for Deck {i + 1} <span className="text-white/30 text-xs ml-2">({deck.id})</span></h3>
+              <button onClick={() => addHandrail(deck.id)} className="text-cyan-400 hover:text-cyan-300 text-[10px] font-bold uppercase tracking-widest">+ Add Handrail</button>
+            </div>
+            <div className="p-4 flex flex-col gap-3">
+              {handrails.filter(h => h.deckId === deck.id).map((handrail, j) => (
+                <div key={handrail.id} className="bg-black/40 border border-cyan-900/40 rounded-md p-3 relative">
+                  <button onClick={() => removeHandrail(handrail.id)} className="absolute top-1.5 right-2 text-red-500 hover:text-red-400 font-bold text-sm">✕</button>
+                  <div className="grid grid-cols-2 lg:grid-cols-5 gap-3">
+                    <SelectInput 
+                      label="Side" 
+                      value={handrail.side} 
+                      onChange={v => updateHandrail(handrail.id, { side: v as any })}
+                      options={[{value: 'top', label: 'Top'}, {value: 'bottom', label: 'Bottom'}, {value: 'left', label: 'Left'}, {value: 'right', label: 'Right'}]}
+                    />
+                    <SelectInput 
+                      label="Measure From" 
+                      value={handrail.corner} 
+                      onChange={v => updateHandrail(handrail.id, { corner: v as any })}
+                      options={[{value: 'topLeft', label: 'Top Left'}, {value: 'topRight', label: 'Top Right'}, {value: 'bottomLeft', label: 'Bottom Left'}, {value: 'bottomRight', label: 'Bottom Right'}]}
+                    />
+                    <NumberInput label="Offset (m)" value={handrail.offset} onChange={v => updateHandrail(handrail.id, { offset: v })} />
+                    <NumberInput label="Length (m)" value={handrail.length} onChange={v => updateHandrail(handrail.id, { length: v })} />
+                    <SelectInput 
+                      label="Type" 
+                      value={handrail.type || 'standard'} 
+                      onChange={v => updateHandrail(handrail.id, { type: v as any })}
+                      options={[{value: 'standard', label: 'Standard'}, {value: 'heavy-duty', label: 'Heavy Duty'}, {value: 'decorative', label: 'Decorative'}]}
+                    />
+                  </div>
+                </div>
+              ))}
+              {handrails.filter(h => h.deckId === deck.id).length === 0 && (
+                <p className="text-white/20 text-[10px] italic font-mono">No handrails added to this deck.</p>
+              )}
+            </div>
+          </div>
+        ))}
+
+        {activeTab === 'landings' && ramps.map((ramp, i) => (
+          <div key={ramp.id} className="glass-panel rounded-lg border border-white/10 overflow-hidden">
+            <div className="bg-white/5 px-4 py-3 border-b border-white/10 flex justify-between items-center">
+              <h3 className="text-base font-display font-black text-white uppercase tracking-widest">Landings for Ramp {i + 1} <span className="text-white/30 text-xs ml-2">({ramp.id})</span></h3>
+              <button onClick={() => addLandingPad(ramp.id)} className="text-cyan-400 hover:text-cyan-300 text-[10px] font-bold uppercase tracking-widest">+ Add Landing Pad</button>
+            </div>
+            <div className="p-4 flex flex-col gap-3">
+              {(ramp.landingPads || []).map(pad => (
+                <div key={pad.id} className="flex gap-2 items-end bg-black/20 p-2 rounded relative">
+                  <button onClick={() => removeLandingPad(ramp.id, pad.id)} className="absolute top-1 right-1 text-red-500 hover:text-red-400 font-bold text-xs">✕</button>
+                  <div className="flex-1"><NumberInput label="Start Offset (m)" value={pad.offset} onChange={v => updateLandingPad(ramp.id, pad.id, { offset: Number(v) })} /></div>
+                  <div className="flex-1"><NumberInput label="Length (m)" value={pad.length} onChange={v => updateLandingPad(ramp.id, pad.id, { length: Number(v) })} /></div>
+                </div>
+              ))}
+              {(!ramp.landingPads || ramp.landingPads.length === 0) && (
+                <p className="text-white/20 text-[9px] italic font-mono">No landing pads added.</p>
+              )}
+            </div>
+          </div>
+        ))}
+
+        {activeTab === 'decks' && (
+          <div className="flex justify-between items-center gap-4 mt-4">
+            <button 
+              onClick={addDeck}
+              className="flex-1 py-4 border-2 border-dashed border-white/10 text-white/40 hover:text-white hover:border-white/30 hover:bg-white/5 rounded-lg font-black uppercase tracking-widest transition-all text-xs"
+            >
+              + Add Another Deck
+            </button>
+          </div>
+        )}
+      </div>
+
+      <div className="mt-auto pt-4 border-t border-white/10">
+        <button 
+          onClick={onComplete}
+          className="w-full py-4 bg-[#00d2ff] text-black font-black uppercase tracking-widest text-xs rounded-lg hover:bg-white transition-colors"
+        >
+          Generate 3D Model
+        </button>
       </div>
     </div>
   );

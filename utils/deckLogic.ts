@@ -169,7 +169,7 @@ const calculateRakingDeck = (
   handrailConfigs: import('../types').HandrailConfig[] = []
 ): import('../types').DeckCalculationResult => {
   const targetWidth = Number(deck.width) || 0;
-  const tiers = deck.tiers || 3;
+  const tiers = Number(deck.tiers) || 3;
   const numW = Math.min(targetWidth, 100);
   
   const terrain: import('../types').TerrainConfig = {
@@ -215,8 +215,10 @@ const calculateRakingDeck = (
         id: `RAKING_T${t}_X${currentX.toFixed(1)}`,
         gridRow: t,
         gridCol: Math.round(currentX / 1.2),
-        topLeft: { x: xEnd, y: zEnd },
-        bottomRight: { x: xStart, y: zStart },
+        center: { x: (xStart + xEnd) / 2, y: (zStart + zEnd) / 2 },
+        width: bayWidth,
+        depth: 1.2,
+        rotationY: 0,
         startElevation: height,
         endElevation: height
       });
@@ -258,20 +260,30 @@ const calculateRakingDeck = (
   // Calculate leg assemblies
   feet.forEach(foot => {
     const pz = foot.position.y;
+    const px = foot.position.x;
     const t = Math.round(pz / 1.2); // Tier index (0 for front of tier 1, 1 for back of tier 1 / front of tier 2, etc.)
     
+    // Raking specific leg logic:
     // "The first row of rostrims are 250 high, and always built on level grounds. Dont use basejacks at all unless theres a ramp."
     // "The second row of rostrims right side feet will all be 250mm high, pipes, and every third foot is a plate foot, all through to the end, the left side feet will all be on the floor, and 500mm high."
-    // Let's simplify: all feet are just pipes going to the floor.
-    // Wait, the user said "right side feet will all be 250mm high, pipes... left side feet will all be on the floor, and 500mm high."
-    // This implies the front feet of tier 2 (z=1.2) rest on tier 1, so they are 250mm long.
-    // The back feet of tier 2 (z=2.4) go to the floor, so they are 500mm long.
-    // Let's just use standard leg assemblies for now, but without basejacks.
+    // Interpretation:
+    // Front feet of tier 1 (t=0): 250mm pipe on floor.
+    // Back feet of tier 1 (t=1): 500mm pipe on floor.
+    // Front feet of tier 2 (t=1): 250mm pipe resting on tier 1.
+    // Back feet of tier 2 (t=2): 750mm pipe on floor.
+    // So for any tier t (where t is the z-index from 0 to tiers):
+    // If it's the front of the tier (t), and t > 0, it rests on the tier below it.
+    // Actually, the prompt says "left side feet will all be on the floor, and 500mm high" for the second row.
+    // This implies the back feet (left side) go to the floor and are (tier * 250)mm high.
+    // The front feet (right side) rest on the tier below and are 250mm high.
+    // Since our system calculates total height from ground, we just set the total height to (t * 0.25) or similar.
+    // For visualizer, we just need the total height. The assembly will just be a pipe.
+    
     const h = foot.targetElevation;
     foot.assembly = {
-      baseJack: 0,
-      pipes: [h],
-      uHead: 0,
+      basejack: 0,
+      pipe: h * 1000,
+      standards: [],
       totalHeight: h
     };
   });
@@ -290,51 +302,9 @@ const calculateRakingDeck = (
     return terrain.deckHeight;
   };
 
-  handrailConfigs.forEach(hc => {
-    const offset = Number(hc.offset) || 0;
-    const length = Number(hc.length) || 0;
-    if (length <= 0) return;
-
-    let startX = 0, startY = 0, dx = 0, dy = 0;
-
-    if (hc.side === 'top') {
-      startY = exactDepth;
-      if (hc.corner === 'topLeft') {
-        startX = offset;
-        dx = 1;
-      } else if (hc.corner === 'topRight') {
-        startX = exactWidth - offset;
-        dx = -1;
-      }
-    } else if (hc.side === 'bottom') {
-      startY = 0;
-      if (hc.corner === 'bottomLeft') {
-        startX = offset;
-        dx = 1;
-      } else if (hc.corner === 'bottomRight') {
-        startX = exactWidth - offset;
-        dx = -1;
-      }
-    } else if (hc.side === 'left') {
-      startX = 0;
-      if (hc.corner === 'bottomLeft') {
-        startY = offset;
-        dy = 1;
-      } else if (hc.corner === 'topLeft') {
-        startY = exactDepth - offset;
-        dy = -1;
-      }
-    } else if (hc.side === 'right') {
-      startX = exactWidth;
-      if (hc.corner === 'bottomRight') {
-        startY = offset;
-        dy = 1;
-      } else if (hc.corner === 'topRight') {
-        startY = exactDepth - offset;
-        dy = -1;
-      }
-    }
-
+  // Raking handrail: "Handrail on the raking will be all around but completely open in the front."
+  // So we add handrail to left, right, and back.
+  const addRakingHandrail = (startX: number, startY: number, dx: number, dy: number, length: number) => {
     const endX = startX + dx * length;
     const endY = startY + dy * length;
 
@@ -385,7 +355,16 @@ const calculateRakingDeck = (
       type: 'LEFT',
       rotation: rotation
     });
-  });
+  };
+
+  if (deck.handrailType !== 'none') {
+    // Left side
+    addRakingHandrail(0, 0, 0, 1, exactDepth);
+    // Right side
+    addRakingHandrail(exactWidth, exactDepth, 0, -1, exactDepth);
+    // Back side
+    addRakingHandrail(0, exactDepth, 1, 0, exactWidth);
+  }
 
   return {
     rostrums,
@@ -1081,6 +1060,9 @@ const calculateSingleDeck = (
     const isHighRamp = maxRampHeight >= 0.75;
     const isLargeRamp = exactRampWidth > 2.4 && exactRampLength > 2.4;
     
+    // If the ramp is lower than 750mm, no bracing should be added
+    if (!isHighRamp) return;
+    
     const getPtElev = (px: number, py: number) => {
       let offset = 0;
       if (rc.side === 'bottom') offset = startY - py;
@@ -1140,8 +1122,8 @@ const calculateSingleDeck = (
 
         const color = "ffe600"; // Yellow for braces
 
-        if (isHighRamp && isLargeRamp) {
-          // Cross bracing for high/large ramps
+        if (isHighRamp) {
+          // Cross bracing for high ramps
           const isOuterX = cc === 0 || remainingWidth - cWidth < 0.1;
           const isOuterY = rr === 0 || rr === rampRowHeights.length - 1;
 
@@ -1170,43 +1152,6 @@ const calculateSingleDeck = (
 
             if (isOuterY) addCrossBrace(c1, c2, 'X');
             if (isOuterX) addCrossBrace(c1, c3, 'Y');
-          }
-        } else {
-          // Parallel bracing for low ramps or small high ramps
-          const addParallelBrace = (pA: any, pB: any, idSuffix: string) => {
-            const elevA = getPtElev(pA.x, pA.y);
-            const elevB = getPtElev(pB.x, pB.y);
-            const groundA = getGroundElev(pA.x, pA.y);
-            const groundB = getGroundElev(pB.x, pB.y);
-
-            // Only add if ramp surface is at least 200mm above ground
-            if (elevA - groundA >= 0.2 && elevB - groundB >= 0.2) {
-              braces.push({
-                id: `RAMP_PBRC_${rampIdx}_${rr}_${cc}_${idSuffix}`,
-                startPos: { x: pA.x, y: pA.y, z: elevA - 0.15 }, // slightly below surface
-                endPos: { x: pB.x, y: pB.y, z: elevB - 0.15 },
-                color
-              });
-            }
-          };
-
-          // Add parallel braces along the slope (longitudinal)
-          if (rc.side === 'bottom' || rc.side === 'top') {
-            addParallelBrace(c1, c3, 'L1');
-            addParallelBrace(c2, c4, 'L2');
-            // Middle feet bracing
-            if (Math.abs(c1.x - c2.x) > 1.8) {
-              const midX = (c1.x + c2.x) / 2;
-              addParallelBrace({x: midX, y: c1.y}, {x: midX, y: c3.y}, 'LMID');
-            }
-          } else {
-            addParallelBrace(c1, c2, 'L1');
-            addParallelBrace(c3, c4, 'L2');
-            // Middle feet bracing
-            if (Math.abs(c1.y - c3.y) > 1.8) {
-              const midY = (c1.y + c3.y) / 2;
-              addParallelBrace({x: c1.x, y: midY}, {x: c2.x, y: midY}, 'LMID');
-            }
           }
         }
 
