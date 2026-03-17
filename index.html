@@ -1,0 +1,85 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Merl Magic | Engineering Terminal</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;700&family=Outfit:wght@700;900&display=swap" rel="stylesheet">
+    <style>
+      body { 
+        font-family: 'Inter', sans-serif; 
+        background-color: #080808; 
+        color: #f0f0f0; 
+        margin: 0; 
+        padding: 0; 
+        overflow: hidden;
+      }
+      .font-mono { font-family: 'JetBrains Mono', monospace; }
+      .font-display { font-family: 'Outfit', sans-serif; }
+      
+      /* Professional Engineering HUD */
+      .glass-panel {
+        background: rgba(15, 15, 18, 0.85);
+        backdrop-filter: blur(16px);
+        border: 1px solid rgba(255, 255, 255, 0.08);
+        box-shadow: 0 10px 40px rgba(0, 0, 0, 0.5);
+      }
+      
+      .cad-border {
+        border-left: 3px solid #00d2ff;
+      }
+
+      .telemetry-text {
+        font-family: 'JetBrains Mono', monospace;
+        letter-spacing: -0.02em;
+      }
+
+      .glow-button {
+        transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+        background: rgba(255, 255, 255, 0.03);
+        border: 1px solid rgba(255, 255, 255, 0.1);
+      }
+      .glow-button:hover {
+        background: rgba(0, 210, 255, 0.1);
+        border-color: #00d2ff;
+        color: #00d2ff;
+      }
+
+      ::-webkit-scrollbar { width: 4px; }
+      ::-webkit-scrollbar-track { background: transparent; }
+      ::-webkit-scrollbar-thumb { background: rgba(255, 255, 255, 0.1); border-radius: 2px; }
+
+      .hud-line {
+        background: linear-gradient(90deg, #00d2ff, transparent);
+        height: 1px;
+        width: 100%;
+      }
+    </style>
+  <script type="importmap">
+{
+  "imports": {
+    "react": "https://esm.sh/react@18.2.0",
+    "react-dom": "https://esm.sh/react-dom@18.2.0",
+    "react-dom/client": "https://esm.sh/react-dom@18.2.0/client",
+    "react/jsx-runtime": "https://esm.sh/react@18.2.0/jsx-runtime",
+    "three": "https://esm.sh/three@0.160.0",
+    "three/examples/jsm/lines/Line2": "https://esm.sh/three@0.160.0/examples/jsm/lines/Line2",
+    "@react-three/fiber": "https://esm.sh/@react-three/fiber@8.15.16?external=react,react-dom,three",
+    "@react-three/drei": "https://esm.sh/@react-three/drei@9.99.0?external=react,react-dom,three,@react-three/fiber",
+    "@react-three/postprocessing": "https://esm.sh/@react-three/postprocessing@2.16.2?external=react,react-dom,three,@react-three/fiber",
+    "react-dom/": "https://esm.sh/react-dom@^18.2.0/",
+    "react/": "https://esm.sh/react@^18.2.0/"
+  }
+}
+</script>
+<link rel="stylesheet" href="/index.css">
+</head>
+  <body class="antialiased overflow-hidden">
+    <div id="root" class="h-screen w-screen flex flex-col"></div>
+    <script type="module" src="./index.tsx"></script>
+  <script type="module" src="/index.tsx"></script>
+</body>
+</html>
