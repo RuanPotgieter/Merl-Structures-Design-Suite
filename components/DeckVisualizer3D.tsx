@@ -536,7 +536,7 @@ export interface DeckVisualizer3DProps {
 }
 
 export const DeckVisualizer3D: React.FC<DeckVisualizer3DProps> = ({ data, layers }) => {
-  const BG_COLOR = "#080808";
+  const BG_COLOR = "#f3f4f6";
   const controlsRef = useRef<any>(null);
 
   const setView = (view: string) => {
@@ -576,17 +576,17 @@ export const DeckVisualizer3D: React.FC<DeckVisualizer3DProps> = ({ data, layers
   const initialDistance = Math.max(data.dimensions.width, data.dimensions.depth) * 1.5 + 5;
 
   return (
-    <div className="w-full h-full bg-[#080808] overflow-hidden relative">
-      <div className="absolute top-4 right-4 z-10 flex flex-col gap-2 bg-black/50 p-2 rounded-lg backdrop-blur-sm border border-white/10">
-        <div className="text-xs text-white/50 uppercase tracking-wider font-semibold mb-1 text-center">Views</div>
+    <div className="w-full h-full bg-[#f3f4f6] overflow-hidden relative">
+      <div className="absolute top-4 right-4 z-10 flex flex-col gap-2 bg-white/90 p-3 rounded-lg backdrop-blur-sm border border-[#e5e7eb] shadow-sm">
+        <div className="text-[10px] text-[#6b7280] uppercase tracking-wider font-bold mb-1 text-center">Camera Views</div>
         <div className="grid grid-cols-2 gap-2">
-          <button onClick={() => setView('iso')} className="px-3 py-1.5 bg-white/10 hover:bg-white/20 text-white text-xs rounded transition-colors col-span-2">Isometric</button>
-          <button onClick={() => setView('top')} className="px-3 py-1.5 bg-white/10 hover:bg-white/20 text-white text-xs rounded transition-colors">Top</button>
-          <button onClick={() => setView('bottom')} className="px-3 py-1.5 bg-white/10 hover:bg-white/20 text-white text-xs rounded transition-colors">Bottom</button>
-          <button onClick={() => setView('left')} className="px-3 py-1.5 bg-white/10 hover:bg-white/20 text-white text-xs rounded transition-colors">Left</button>
-          <button onClick={() => setView('right')} className="px-3 py-1.5 bg-white/10 hover:bg-white/20 text-white text-xs rounded transition-colors">Right</button>
-          <button onClick={() => setView('front')} className="px-3 py-1.5 bg-white/10 hover:bg-white/20 text-white text-xs rounded transition-colors">Front</button>
-          <button onClick={() => setView('back')} className="px-3 py-1.5 bg-white/10 hover:bg-white/20 text-white text-xs rounded transition-colors">Back</button>
+          <button onClick={() => setView('iso')} className="px-3 py-1.5 bg-white hover:bg-[#f3f4f6] border border-[#e5e7eb] text-[#374151] text-xs font-semibold rounded transition-colors col-span-2 shadow-sm">Isometric</button>
+          <button onClick={() => setView('top')} className="px-3 py-1.5 bg-white hover:bg-[#f3f4f6] border border-[#e5e7eb] text-[#374151] text-xs font-semibold rounded transition-colors shadow-sm">Top</button>
+          <button onClick={() => setView('bottom')} className="px-3 py-1.5 bg-white hover:bg-[#f3f4f6] border border-[#e5e7eb] text-[#374151] text-xs font-semibold rounded transition-colors shadow-sm">Bottom</button>
+          <button onClick={() => setView('left')} className="px-3 py-1.5 bg-white hover:bg-[#f3f4f6] border border-[#e5e7eb] text-[#374151] text-xs font-semibold rounded transition-colors shadow-sm">Left</button>
+          <button onClick={() => setView('right')} className="px-3 py-1.5 bg-white hover:bg-[#f3f4f6] border border-[#e5e7eb] text-[#374151] text-xs font-semibold rounded transition-colors shadow-sm">Right</button>
+          <button onClick={() => setView('front')} className="px-3 py-1.5 bg-white hover:bg-[#f3f4f6] border border-[#e5e7eb] text-[#374151] text-xs font-semibold rounded transition-colors shadow-sm">Front</button>
+          <button onClick={() => setView('back')} className="px-3 py-1.5 bg-white hover:bg-[#f3f4f6] border border-[#e5e7eb] text-[#374151] text-xs font-semibold rounded transition-colors shadow-sm">Back</button>
         </div>
       </div>
 
@@ -611,7 +611,7 @@ export const DeckVisualizer3D: React.FC<DeckVisualizer3DProps> = ({ data, layers
           shadow-camera-top={30}
           shadow-camera-bottom={-30}
         />
-        <Environment preset="night" />
+        <Environment preset="city" />
         
         <group>
           <OriginMarker terrain={data.terrain} dimensions={data.dimensions} />

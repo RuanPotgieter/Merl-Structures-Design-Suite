@@ -105,17 +105,17 @@ export const ProjectManager: React.FC<ProjectManagerProps> = ({
       <div className="flex items-center gap-2">
         <button 
           onClick={() => setIsOpen(true)}
-          className="flex items-center gap-2 px-3 py-1.5 bg-white/5 hover:bg-white/10 border border-white/10 rounded-md text-xs font-medium transition-colors"
+          className="flex items-center gap-2 px-3 py-1.5 bg-white hover:bg-[#f3f4f6] border border-[#e5e7eb] rounded-md text-xs font-semibold text-[#374151] transition-colors shadow-sm"
         >
-          <FolderOpen size={14} />
+          <FolderOpen size={14} className="text-[#6b7280]" />
           Projects
         </button>
         
         {currentProject && (
-          <div className="flex items-center gap-2 px-3 py-1.5 bg-[#00d2ff]/10 border border-[#00d2ff]/20 rounded-md text-xs">
-            <span className="text-white/60">Current:</span>
-            <span className="text-[#00d2ff] font-medium">{currentProject.siteName}</span>
-            <button onClick={() => setIsEditing(true)} className="ml-2 text-white/40 hover:text-white">
+          <div className="flex items-center gap-2 px-3 py-1.5 bg-[#eff6ff] border border-[#bfdbfe] rounded-md text-xs shadow-sm">
+            <span className="text-[#6b7280] font-medium">Current:</span>
+            <span className="text-[#1d4ed8] font-semibold">{currentProject.siteName}</span>
+            <button onClick={() => setIsEditing(true)} className="ml-2 text-[#9ca3af] hover:text-[#2563eb] transition-colors">
               <Edit2 size={12} />
             </button>
           </div>
@@ -124,28 +124,28 @@ export const ProjectManager: React.FC<ProjectManagerProps> = ({
 
       {/* Project Modal */}
       {isOpen && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm">
-          <div className="bg-[#121214] border border-white/10 rounded-xl w-full max-w-2xl shadow-2xl overflow-hidden flex flex-col max-h-[80vh]">
-            <div className="flex items-center justify-between p-4 border-b border-white/5 bg-white/5">
-              <h2 className="text-lg font-medium text-white flex items-center gap-2">
-                <FolderOpen size={18} className="text-[#00d2ff]" />
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-[#111827]/40 backdrop-blur-sm">
+          <div className="bg-white border border-[#e5e7eb] rounded-xl w-full max-w-2xl shadow-2xl overflow-hidden flex flex-col max-h-[80vh]">
+            <div className="flex items-center justify-between p-4 border-b border-[#e5e7eb] bg-[#f9fafb]">
+              <h2 className="text-lg font-semibold text-[#111827] flex items-center gap-2">
+                <FolderOpen size={18} className="text-[#2563eb]" />
                 Project Manager
               </h2>
-              <button onClick={() => setIsOpen(false)} className="text-white/40 hover:text-white transition-colors">
+              <button onClick={() => setIsOpen(false)} className="text-[#9ca3af] hover:text-[#4b5563] transition-colors">
                 <X size={20} />
               </button>
             </div>
             
-            <div className="p-4 flex-1 overflow-y-auto">
+            <div className="p-4 flex-1 overflow-y-auto bg-white">
               <div className="flex justify-between items-center mb-4">
-                <h3 className="text-sm font-medium text-white/60 uppercase tracking-wider">Saved Projects</h3>
+                <h3 className="text-xs font-bold text-[#6b7280] uppercase tracking-wider">Saved Projects</h3>
                 <button 
                   onClick={() => {
                     onNewProject();
                     setIsOpen(false);
                     setIsEditing(true);
                   }}
-                  className="flex items-center gap-1.5 px-3 py-1.5 bg-[#00d2ff] text-black rounded-md text-xs font-bold hover:bg-[#00b8e6] transition-colors"
+                  className="flex items-center gap-1.5 px-3 py-1.5 bg-[#2563eb] text-white rounded-md text-xs font-semibold hover:bg-[#1d4ed8] transition-colors shadow-sm"
                 >
                   <Plus size={14} />
                   New Project
@@ -153,16 +153,16 @@ export const ProjectManager: React.FC<ProjectManagerProps> = ({
               </div>
               
               {projects.length === 0 ? (
-                <div className="text-center py-12 border border-white/5 rounded-lg border-dashed">
-                  <p className="text-white/40 text-sm">No projects saved yet.</p>
+                <div className="text-center py-12 border border-[#e5e7eb] rounded-lg border-dashed bg-[#f9fafb]">
+                  <p className="text-[#6b7280] text-sm font-medium">No projects saved yet.</p>
                 </div>
               ) : (
                 <div className="grid gap-3">
                   {projects.map(p => (
-                    <div key={p.id} className="flex items-center justify-between p-3 bg-white/5 border border-white/5 rounded-lg hover:border-white/20 transition-colors group">
+                    <div key={p.id} className="flex items-center justify-between p-3 bg-white border border-[#e5e7eb] rounded-lg hover:border-[#bfdbfe] hover:bg-[#eff6ff] transition-colors group shadow-sm">
                       <div>
-                        <div className="font-medium text-white text-sm">{p.siteName}</div>
-                        <div className="text-xs text-white/40 mt-0.5">Client: {p.clientName} • Last updated: {new Date(p.updatedAt).toLocaleDateString()}</div>
+                        <div className="font-semibold text-[#111827] text-sm">{p.siteName}</div>
+                        <div className="text-xs text-[#6b7280] mt-0.5 font-medium">Client: {p.clientName} • Last updated: {new Date(p.updatedAt).toLocaleDateString()}</div>
                       </div>
                       <div className="flex items-center gap-2 opacity-0 group-hover:opacity-100 transition-opacity">
                         <button 
@@ -170,13 +170,13 @@ export const ProjectManager: React.FC<ProjectManagerProps> = ({
                             onLoadProject(p);
                             setIsOpen(false);
                           }}
-                          className="px-3 py-1.5 bg-white/10 hover:bg-white/20 rounded text-xs font-medium transition-colors"
+                          className="px-3 py-1.5 bg-white hover:bg-[#f3f4f6] border border-[#e5e7eb] rounded text-xs font-semibold text-[#374151] transition-colors shadow-sm"
                         >
                           Open
                         </button>
                         <button 
                           onClick={() => handleDelete(p.id)}
-                          className="p-1.5 text-red-400 hover:bg-red-400/10 rounded transition-colors"
+                          className="p-1.5 text-[#ef4444] hover:bg-[#fef2f2] rounded transition-colors"
                         >
                           <Trash2 size={14} />
                         </button>
@@ -192,51 +192,51 @@ export const ProjectManager: React.FC<ProjectManagerProps> = ({
 
       {/* Edit/Save Modal */}
       {isEditing && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm">
-          <div className="bg-[#121214] border border-white/10 rounded-xl w-full max-w-md shadow-2xl overflow-hidden">
-            <div className="flex items-center justify-between p-4 border-b border-white/5 bg-white/5">
-              <h2 className="text-lg font-medium text-white flex items-center gap-2">
-                <Save size={18} className="text-[#00d2ff]" />
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-[#111827]/40 backdrop-blur-sm">
+          <div className="bg-white border border-[#e5e7eb] rounded-xl w-full max-w-md shadow-2xl overflow-hidden">
+            <div className="flex items-center justify-between p-4 border-b border-[#e5e7eb] bg-[#f9fafb]">
+              <h2 className="text-lg font-semibold text-[#111827] flex items-center gap-2">
+                <Save size={18} className="text-[#2563eb]" />
                 {currentProject ? 'Edit Project Details' : 'Save New Project'}
               </h2>
-              <button onClick={() => setIsEditing(false)} className="text-white/40 hover:text-white transition-colors">
+              <button onClick={() => setIsEditing(false)} className="text-[#9ca3af] hover:text-[#4b5563] transition-colors">
                 <X size={20} />
               </button>
             </div>
             
-            <div className="p-5 space-y-4">
+            <div className="p-5 space-y-4 bg-white">
               <div>
-                <label className="block text-xs font-medium text-white/60 mb-1.5">Site Name</label>
+                <label className="block text-xs font-bold text-[#4b5563] mb-1.5 uppercase tracking-wide">Site Name</label>
                 <input 
                   type="text" 
                   value={siteName}
                   onChange={e => setSiteName(e.target.value)}
-                  className="w-full bg-black/50 border border-white/10 rounded-md px-3 py-2 text-sm text-white focus:outline-none focus:border-[#00d2ff]/50 transition-colors"
+                  className="w-full bg-white border border-[#d1d5db] rounded-md px-3 py-2 text-sm text-[#111827] focus:outline-none focus:ring-2 focus:ring-[#2563eb]/20 focus:border-[#2563eb] transition-all shadow-sm"
                   placeholder="e.g. Main Stage Setup"
                 />
               </div>
               <div>
-                <label className="block text-xs font-medium text-white/60 mb-1.5">Client Name</label>
+                <label className="block text-xs font-bold text-[#4b5563] mb-1.5 uppercase tracking-wide">Client Name</label>
                 <input 
                   type="text" 
                   value={clientName}
                   onChange={e => setClientName(e.target.value)}
-                  className="w-full bg-black/50 border border-white/10 rounded-md px-3 py-2 text-sm text-white focus:outline-none focus:border-[#00d2ff]/50 transition-colors"
+                  className="w-full bg-white border border-[#d1d5db] rounded-md px-3 py-2 text-sm text-[#111827] focus:outline-none focus:ring-2 focus:ring-[#2563eb]/20 focus:border-[#2563eb] transition-all shadow-sm"
                   placeholder="e.g. Acme Corp"
                 />
               </div>
             </div>
             
-            <div className="p-4 border-t border-white/5 bg-black/20 flex justify-end gap-2">
+            <div className="p-4 border-t border-[#e5e7eb] bg-[#f9fafb] flex justify-end gap-2">
               <button 
                 onClick={() => setIsEditing(false)}
-                className="px-4 py-2 rounded-md text-sm font-medium text-white/60 hover:text-white hover:bg-white/5 transition-colors"
+                className="px-4 py-2 rounded-md text-sm font-semibold text-[#4b5563] hover:text-[#111827] hover:bg-[#e5e7eb] transition-colors"
               >
                 Cancel
               </button>
               <button 
                 onClick={handleSave}
-                className="px-4 py-2 bg-[#00d2ff] text-black rounded-md text-sm font-bold hover:bg-[#00b8e6] transition-colors"
+                className="px-4 py-2 bg-[#2563eb] text-white rounded-md text-sm font-semibold hover:bg-[#1d4ed8] transition-colors shadow-sm"
               >
                 Save Project
               </button>

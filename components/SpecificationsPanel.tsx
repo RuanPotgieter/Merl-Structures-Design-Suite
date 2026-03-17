@@ -11,12 +11,15 @@ interface SpecificationsPanelProps {
   onComplete: () => void;
 }
 
-const NumberInput: React.FC<{ value: number | ''; onChange: (v: number | '') => void, label: string }> = ({ value, onChange, label }) => (
-  <div className="flex flex-col gap-1">
-    <label className="text-[10px] text-cyan-500/60 font-black uppercase tracking-widest">{label}</label>
+const NumberInput: React.FC<{ value: number | ''; onChange: (v: number | '') => void, label: string, tooltip?: string }> = ({ value, onChange, label, tooltip }) => (
+  <div className="flex flex-col gap-1.5">
+    <label className="text-xs font-semibold text-[#4b5563] flex justify-between items-center">
+      {label}
+      {tooltip && <span className="text-[10px] font-normal text-[#9ca3af] italic" title={tooltip}>?</span>}
+    </label>
     <input
       type="number"
-      className="bg-black/50 border border-cyan-500/20 text-cyan-400 font-mono text-[13px] px-3 py-2 w-full outline-none focus:border-cyan-500 focus:bg-cyan-950/40 transition-all rounded"
+      className="bg-[#f9fafb] border border-[#d1d5db] text-[#111827] text-sm px-3 py-2 w-full outline-none focus:border-[#2563eb] focus:ring-1 focus:ring-[#2563eb] transition-all rounded-md shadow-sm"
       value={value}
       step="0.1"
       onChange={(e) => {
@@ -24,19 +27,24 @@ const NumberInput: React.FC<{ value: number | ''; onChange: (v: number | '') => 
         onChange(val === '' ? '' : parseFloat(val));
       }}
     />
+    {tooltip && <p className="text-[10px] text-[#6b7280] leading-tight">{tooltip}</p>}
   </div>
 );
 
-const SelectInput: React.FC<{ value: string; onChange: (v: string) => void, label: string, options: {value: string, label: string}[] }> = ({ value, onChange, label, options }) => (
-  <div className="flex flex-col gap-1">
-    <label className="text-[10px] text-cyan-500/60 font-black uppercase tracking-widest">{label}</label>
+const SelectInput: React.FC<{ value: string; onChange: (v: string) => void, label: string, options: {value: string, label: string}[], tooltip?: string }> = ({ value, onChange, label, options, tooltip }) => (
+  <div className="flex flex-col gap-1.5">
+    <label className="text-xs font-semibold text-[#4b5563] flex justify-between items-center">
+      {label}
+      {tooltip && <span className="text-[10px] font-normal text-[#9ca3af] italic" title={tooltip}>?</span>}
+    </label>
     <select
-      className="bg-black/50 border border-cyan-500/20 text-cyan-400 font-mono text-[13px] px-3 py-2 w-full outline-none focus:border-cyan-500 focus:bg-cyan-950/40 transition-all rounded"
+      className="bg-[#f9fafb] border border-[#d1d5db] text-[#111827] text-sm px-3 py-2 w-full outline-none focus:border-[#2563eb] focus:ring-1 focus:ring-[#2563eb] transition-all rounded-md shadow-sm"
       value={value}
       onChange={(e) => onChange(e.target.value)}
     >
       {options.map(o => <option key={o.value} value={o.value}>{o.label}</option>)}
     </select>
+    {tooltip && <p className="text-[10px] text-[#6b7280] leading-tight">{tooltip}</p>}
   </div>
 );
 
@@ -75,7 +83,6 @@ export const SpecificationsPanel: React.FC<SpecificationsPanelProps> = ({
 
   const removeDeck = (id: string) => {
     onDecksChange(decks.filter(d => d.id !== id));
-    // Also remove associated ramps and handrails
     onRampsChange(ramps.filter(r => r.deckId !== id));
     onHandrailsChange(handrails.filter(h => h.deckId !== id));
   };
@@ -155,61 +162,58 @@ export const SpecificationsPanel: React.FC<SpecificationsPanelProps> = ({
   };
 
   return (
-    <div className="max-w-6xl mx-auto px-4 py-8 flex flex-col gap-8 h-full">
-      <div className="flex justify-between items-end">
-        <div>
-          <h2 className="text-3xl font-display font-black text-white uppercase tracking-tight mb-2">Specifications</h2>
-          <div className="hud-line mb-3"></div>
-          <p className="text-white/40 text-xs max-w-lg leading-relaxed font-mono italic">
-            Configure your decks and access ramps. Add multiple decks with independent origins, orientations, and terrain elevations.
-          </p>
+    <div className="flex flex-col h-full bg-white text-[#1f2937]">
+      <div className="p-6 pb-0 shrink-0 border-b border-[#e5e7eb] bg-[#f9fafb]">
+        <h2 className="text-xl font-bold text-[#111827] tracking-tight mb-1">Project Specifications</h2>
+        <p className="text-[#6b7280] text-xs leading-relaxed mb-4">
+          Configure decks, access ramps, and handrails.
+        </p>
+        
+        <div className="flex gap-1 overflow-x-auto hide-scrollbar -mb-[1px]">
+          <button onClick={() => setActiveTab('decks')} className={`px-4 py-2 text-xs font-semibold uppercase tracking-wider rounded-t-md border-b-2 transition-colors whitespace-nowrap ${activeTab === 'decks' ? 'border-[#2563eb] text-[#2563eb] bg-white' : 'border-transparent text-[#6b7280] hover:text-[#374151] hover:bg-[#f3f4f6]'}`}>Decks</button>
+          <button onClick={() => setActiveTab('rakings')} className={`px-4 py-2 text-xs font-semibold uppercase tracking-wider rounded-t-md border-b-2 transition-colors whitespace-nowrap ${activeTab === 'rakings' ? 'border-[#2563eb] text-[#2563eb] bg-white' : 'border-transparent text-[#6b7280] hover:text-[#374151] hover:bg-[#f3f4f6]'}`}>Rakings</button>
+          <button onClick={() => setActiveTab('ramps')} className={`px-4 py-2 text-xs font-semibold uppercase tracking-wider rounded-t-md border-b-2 transition-colors whitespace-nowrap ${activeTab === 'ramps' ? 'border-[#2563eb] text-[#2563eb] bg-white' : 'border-transparent text-[#6b7280] hover:text-[#374151] hover:bg-[#f3f4f6]'}`}>Ramps</button>
+          <button onClick={() => setActiveTab('handrails')} className={`px-4 py-2 text-xs font-semibold uppercase tracking-wider rounded-t-md border-b-2 transition-colors whitespace-nowrap ${activeTab === 'handrails' ? 'border-[#2563eb] text-[#2563eb] bg-white' : 'border-transparent text-[#6b7280] hover:text-[#374151] hover:bg-[#f3f4f6]'}`}>Handrails</button>
+          <button onClick={() => setActiveTab('landings')} className={`px-4 py-2 text-xs font-semibold uppercase tracking-wider rounded-t-md border-b-2 transition-colors whitespace-nowrap ${activeTab === 'landings' ? 'border-[#2563eb] text-[#2563eb] bg-white' : 'border-transparent text-[#6b7280] hover:text-[#374151] hover:bg-[#f3f4f6]'}`}>Landings</button>
         </div>
       </div>
 
-      <div className="flex gap-2 border-b border-white/10 pb-2">
-        <button onClick={() => setActiveTab('decks')} className={`px-4 py-2 text-xs font-bold uppercase tracking-widest rounded ${activeTab === 'decks' ? 'bg-cyan-500 text-black' : 'text-white/40 hover:text-white'}`}>Decks</button>
-        <button onClick={() => setActiveTab('rakings')} className={`px-4 py-2 text-xs font-bold uppercase tracking-widest rounded ${activeTab === 'rakings' ? 'bg-cyan-500 text-black' : 'text-white/40 hover:text-white'}`}>Rakings</button>
-        <button onClick={() => setActiveTab('ramps')} className={`px-4 py-2 text-xs font-bold uppercase tracking-widest rounded ${activeTab === 'ramps' ? 'bg-cyan-500 text-black' : 'text-white/40 hover:text-white'}`}>Ramps</button>
-        <button onClick={() => setActiveTab('handrails')} className={`px-4 py-2 text-xs font-bold uppercase tracking-widest rounded ${activeTab === 'handrails' ? 'bg-cyan-500 text-black' : 'text-white/40 hover:text-white'}`}>Handrails</button>
-        <button onClick={() => setActiveTab('landings')} className={`px-4 py-2 text-xs font-bold uppercase tracking-widest rounded ${activeTab === 'landings' ? 'bg-cyan-500 text-black' : 'text-white/40 hover:text-white'}`}>Landings</button>
-      </div>
-
-      <div className="flex flex-col gap-6 flex-1 overflow-y-auto pr-2">
+      <div className="flex flex-col gap-6 flex-1 overflow-y-auto p-6 bg-white">
         {activeTab === 'decks' && decks.filter(d => d.type !== 'raking').map((deck, i) => (
-          <div key={deck.id} className="glass-panel rounded-lg border border-white/10 overflow-hidden">
-            <div className="bg-white/5 px-4 py-3 border-b border-white/10 flex justify-between items-center">
-              <h3 className="text-base font-display font-black text-white uppercase tracking-widest">Deck {i + 1} <span className="text-white/30 text-xs ml-2">({deck.id})</span></h3>
+          <div key={deck.id} className="bg-white rounded-lg border border-[#e5e7eb] shadow-sm overflow-hidden">
+            <div className="bg-[#f9fafb] px-4 py-3 border-b border-[#e5e7eb] flex justify-between items-center">
+              <h3 className="text-sm font-bold text-[#111827] uppercase tracking-wider">Deck {i + 1} <span className="text-[#9ca3af] text-xs ml-1 font-normal">({deck.id})</span></h3>
               {decks.length > 1 && (
-                <button onClick={() => removeDeck(deck.id)} className="text-red-400 hover:text-red-300 text-[10px] font-bold uppercase tracking-widest">Remove Deck</button>
+                <button onClick={() => removeDeck(deck.id)} className="text-red-500 hover:text-red-700 text-[10px] font-bold uppercase tracking-wider transition-colors">Remove</button>
               )}
             </div>
             
-            <div className="p-4 grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
-              <div className="col-span-1 md:col-span-2 lg:col-span-4">
-                <h4 className="text-[10px] font-bold text-white/40 uppercase tracking-widest mb-3 border-b border-white/10 pb-1.5">Dimensions & Position</h4>
-                <div className="grid grid-cols-2 lg:grid-cols-5 gap-3">
+            <div className="p-5 flex flex-col gap-6">
+              <div>
+                <h4 className="text-xs font-bold text-[#4b5563] uppercase tracking-wider mb-4 border-b border-[#e5e7eb] pb-2">Dimensions & Position</h4>
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                   <SelectInput 
                     label="Deck Type" 
                     value={deck.type || 'standard'} 
                     onChange={v => updateDeck(deck.id, { type: v as any })}
                     options={[{value: 'standard', label: 'Standard'}, {value: 'raking', label: 'Raking'}]}
                   />
-                  <NumberInput label="Depth (m)" value={deck.depth} onChange={v => updateDeck(deck.id, { depth: v })} />
-                  <NumberInput label="Width (m)" value={deck.width} onChange={v => updateDeck(deck.id, { width: v })} />
-                  <NumberInput label="Origin X (m)" value={deck.originX} onChange={v => updateDeck(deck.id, { originX: v })} />
-                  <NumberInput label="Origin Z (m)" value={deck.originZ} onChange={v => updateDeck(deck.id, { originZ: v })} />
-                  <NumberInput label="Orientation (deg)" value={deck.orientation} onChange={v => updateDeck(deck.id, { orientation: v })} />
+                  <NumberInput label="Depth (m)" value={deck.depth} onChange={v => updateDeck(deck.id, { depth: v })} tooltip="Main direction length" />
+                  <NumberInput label="Width (m)" value={deck.width} onChange={v => updateDeck(deck.id, { width: v })} tooltip="Cross direction length" />
+                  <NumberInput label="Origin X (m)" value={deck.originX} onChange={v => updateDeck(deck.id, { originX: v })} tooltip="X-axis position" />
+                  <NumberInput label="Origin Z (m)" value={deck.originZ} onChange={v => updateDeck(deck.id, { originZ: v })} tooltip="Z-axis position" />
+                  <NumberInput label="Orientation (°)" value={deck.orientation} onChange={v => updateDeck(deck.id, { orientation: v })} tooltip="Rotation in degrees" />
                 </div>
               </div>
 
-              <div className="col-span-1 md:col-span-2 lg:col-span-4">
-                <h4 className="text-[10px] font-bold text-white/40 uppercase tracking-widest mb-3 border-b border-white/10 pb-1.5">Elevations & Terrain</h4>
-                <div className="grid grid-cols-2 lg:grid-cols-5 gap-3">
-                  <NumberInput label="Datum Height (m)" value={deck.terrain.deckHeight} onChange={v => updateTerrain(deck.id, { deckHeight: v })} />
-                  <NumberInput label="Origin Ground Offset" value={deck.terrain.groundOffsets.origin} onChange={v => updateGroundOffsets(deck.id, { origin: v })} />
-                  <NumberInput label="Width End Ground Offset" value={deck.terrain.groundOffsets.widthEnd} onChange={v => updateGroundOffsets(deck.id, { widthEnd: v })} />
-                  <NumberInput label="Depth End Ground Offset" value={deck.terrain.groundOffsets.depthEnd} onChange={v => updateGroundOffsets(deck.id, { depthEnd: v })} />
-                  <NumberInput label="Diagonal Ground Offset" value={deck.terrain.groundOffsets.diagonal} onChange={v => updateGroundOffsets(deck.id, { diagonal: v })} />
+              <div>
+                <h4 className="text-xs font-bold text-[#4b5563] uppercase tracking-wider mb-4 border-b border-[#e5e7eb] pb-2">Elevations & Terrain</h4>
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                  <NumberInput label="Datum Height (m)" value={deck.terrain.deckHeight} onChange={v => updateTerrain(deck.id, { deckHeight: v })} tooltip="Height from datum to deck surface" />
+                  <NumberInput label="Origin Ground Offset (m)" value={deck.terrain.groundOffsets.origin} onChange={v => updateGroundOffsets(deck.id, { origin: v })} tooltip="Ground level at origin" />
+                  <NumberInput label="Width End Ground Offset (m)" value={deck.terrain.groundOffsets.widthEnd} onChange={v => updateGroundOffsets(deck.id, { widthEnd: v })} />
+                  <NumberInput label="Depth End Ground Offset (m)" value={deck.terrain.groundOffsets.depthEnd} onChange={v => updateGroundOffsets(deck.id, { depthEnd: v })} />
+                  <NumberInput label="Diagonal Ground Offset (m)" value={deck.terrain.groundOffsets.diagonal} onChange={v => updateGroundOffsets(deck.id, { diagonal: v })} />
                 </div>
               </div>
             </div>
@@ -217,40 +221,40 @@ export const SpecificationsPanel: React.FC<SpecificationsPanelProps> = ({
         ))}
 
         {activeTab === 'rakings' && decks.filter(d => d.type === 'raking').map((deck, i) => (
-          <div key={deck.id} className="glass-panel rounded-lg border border-white/10 overflow-hidden">
-            <div className="bg-white/5 px-4 py-3 border-b border-white/10 flex justify-between items-center">
-              <h3 className="text-base font-display font-black text-white uppercase tracking-widest">Raking Deck {i + 1} <span className="text-white/30 text-xs ml-2">({deck.id})</span></h3>
+          <div key={deck.id} className="bg-white rounded-lg border border-[#e5e7eb] shadow-sm overflow-hidden">
+            <div className="bg-[#f9fafb] px-4 py-3 border-b border-[#e5e7eb] flex justify-between items-center">
+              <h3 className="text-sm font-bold text-[#111827] uppercase tracking-wider">Raking Deck {i + 1} <span className="text-[#9ca3af] text-xs ml-1 font-normal">({deck.id})</span></h3>
               {decks.length > 1 && (
-                <button onClick={() => removeDeck(deck.id)} className="text-red-400 hover:text-red-300 text-[10px] font-bold uppercase tracking-widest">Remove Deck</button>
+                <button onClick={() => removeDeck(deck.id)} className="text-red-500 hover:text-red-700 text-[10px] font-bold uppercase tracking-wider transition-colors">Remove</button>
               )}
             </div>
             
-            <div className="p-4 grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
-              <div className="col-span-1 md:col-span-2 lg:col-span-4">
-                <h4 className="text-[10px] font-bold text-white/40 uppercase tracking-widest mb-3 border-b border-white/10 pb-1.5">Dimensions & Position</h4>
-                <div className="grid grid-cols-2 lg:grid-cols-5 gap-3">
+            <div className="p-5 flex flex-col gap-6">
+              <div>
+                <h4 className="text-xs font-bold text-[#4b5563] uppercase tracking-wider mb-4 border-b border-[#e5e7eb] pb-2">Dimensions & Position</h4>
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                   <SelectInput 
                     label="Deck Type" 
                     value={deck.type || 'standard'} 
                     onChange={v => updateDeck(deck.id, { type: v as any })}
                     options={[{value: 'standard', label: 'Standard'}, {value: 'raking', label: 'Raking'}]}
                   />
-                  <NumberInput label="Tiers" value={deck.tiers || 3} onChange={v => updateDeck(deck.id, { tiers: v as number })} />
-                  <NumberInput label="Width (m)" value={deck.width} onChange={v => updateDeck(deck.id, { width: v })} />
+                  <NumberInput label="Tiers" value={deck.tiers || 3} onChange={v => updateDeck(deck.id, { tiers: v as number })} tooltip="Number of stepped tiers" />
+                  <NumberInput label="Width (m)" value={deck.width} onChange={v => updateDeck(deck.id, { width: v })} tooltip="Total width of all tiers" />
                   <NumberInput label="Origin X (m)" value={deck.originX} onChange={v => updateDeck(deck.id, { originX: v })} />
                   <NumberInput label="Origin Z (m)" value={deck.originZ} onChange={v => updateDeck(deck.id, { originZ: v })} />
-                  <NumberInput label="Orientation (deg)" value={deck.orientation} onChange={v => updateDeck(deck.id, { orientation: v })} />
+                  <NumberInput label="Orientation (°)" value={deck.orientation} onChange={v => updateDeck(deck.id, { orientation: v })} />
                 </div>
               </div>
 
-              <div className="col-span-1 md:col-span-2 lg:col-span-4">
-                <h4 className="text-[10px] font-bold text-white/40 uppercase tracking-widest mb-3 border-b border-white/10 pb-1.5">Elevations & Terrain</h4>
-                <div className="grid grid-cols-2 lg:grid-cols-5 gap-3">
+              <div>
+                <h4 className="text-xs font-bold text-[#4b5563] uppercase tracking-wider mb-4 border-b border-[#e5e7eb] pb-2">Elevations & Terrain</h4>
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                   <NumberInput label="Datum Height (m)" value={deck.terrain.deckHeight} onChange={v => updateTerrain(deck.id, { deckHeight: v })} />
-                  <NumberInput label="Origin Ground Offset" value={deck.terrain.groundOffsets.origin} onChange={v => updateGroundOffsets(deck.id, { origin: v })} />
-                  <NumberInput label="Width End Ground Offset" value={deck.terrain.groundOffsets.widthEnd} onChange={v => updateGroundOffsets(deck.id, { widthEnd: v })} />
-                  <NumberInput label="Depth End Ground Offset" value={deck.terrain.groundOffsets.depthEnd} onChange={v => updateGroundOffsets(deck.id, { depthEnd: v })} />
-                  <NumberInput label="Diagonal Ground Offset" value={deck.terrain.groundOffsets.diagonal} onChange={v => updateGroundOffsets(deck.id, { diagonal: v })} />
+                  <NumberInput label="Origin Ground Offset (m)" value={deck.terrain.groundOffsets.origin} onChange={v => updateGroundOffsets(deck.id, { origin: v })} />
+                  <NumberInput label="Width End Ground Offset (m)" value={deck.terrain.groundOffsets.widthEnd} onChange={v => updateGroundOffsets(deck.id, { widthEnd: v })} />
+                  <NumberInput label="Depth End Ground Offset (m)" value={deck.terrain.groundOffsets.depthEnd} onChange={v => updateGroundOffsets(deck.id, { depthEnd: v })} />
+                  <NumberInput label="Diagonal Ground Offset (m)" value={deck.terrain.groundOffsets.diagonal} onChange={v => updateGroundOffsets(deck.id, { diagonal: v })} />
                 </div>
               </div>
             </div>
@@ -258,68 +262,68 @@ export const SpecificationsPanel: React.FC<SpecificationsPanelProps> = ({
         ))}
 
         {activeTab === 'ramps' && decks.map((deck, i) => (
-          <div key={deck.id} className="glass-panel rounded-lg border border-white/10 overflow-hidden">
-            <div className="bg-white/5 px-4 py-3 border-b border-white/10 flex justify-between items-center">
-              <h3 className="text-base font-display font-black text-white uppercase tracking-widest">Ramps for Deck {i + 1} <span className="text-white/30 text-xs ml-2">({deck.id})</span></h3>
-              <button onClick={() => addRamp(deck.id)} className="text-cyan-400 hover:text-cyan-300 text-[10px] font-bold uppercase tracking-widest">+ Add Ramp</button>
+          <div key={deck.id} className="bg-white rounded-lg border border-[#e5e7eb] shadow-sm overflow-hidden">
+            <div className="bg-[#f9fafb] px-4 py-3 border-b border-[#e5e7eb] flex justify-between items-center">
+              <h3 className="text-sm font-bold text-[#111827] uppercase tracking-wider">Ramps for Deck {i + 1} <span className="text-[#9ca3af] text-xs ml-1 font-normal">({deck.id})</span></h3>
+              <button onClick={() => addRamp(deck.id)} className="text-[#2563eb] hover:text-[#1d4ed8] text-[10px] font-bold uppercase tracking-wider transition-colors">+ Add Ramp</button>
             </div>
-            <div className="p-4 flex flex-col gap-3">
+            <div className="p-5 flex flex-col gap-4">
               {ramps.filter(r => r.deckId === deck.id).map((ramp, j) => (
-                <div key={ramp.id} className="bg-black/40 border border-cyan-900/40 rounded-md p-3 relative">
-                  <button onClick={() => removeRamp(ramp.id)} className="absolute top-1.5 right-2 text-red-500 hover:text-red-400 font-bold text-sm">✕</button>
-                  <div className="grid grid-cols-2 lg:grid-cols-5 gap-3">
+                <div key={ramp.id} className="bg-[#f9fafb] border border-[#e5e7eb] rounded-md p-4 relative">
+                  <button onClick={() => removeRamp(ramp.id)} className="absolute top-2 right-3 text-[#9ca3af] hover:text-red-500 font-bold text-sm transition-colors">✕</button>
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 mt-2">
                     <SelectInput 
-                      label="Side" 
+                      label="Attach to Side" 
                       value={ramp.side} 
                       onChange={v => updateRamp(ramp.id, { side: v as any })}
                       options={[{value: 'top', label: 'Top'}, {value: 'bottom', label: 'Bottom'}, {value: 'left', label: 'Left'}, {value: 'right', label: 'Right'}]}
                     />
                     <SelectInput 
-                      label="Measure From" 
+                      label="Measure From Corner" 
                       value={ramp.corner} 
                       onChange={v => updateRamp(ramp.id, { corner: v as any })}
                       options={[{value: 'topLeft', label: 'Top Left'}, {value: 'topRight', label: 'Top Right'}, {value: 'bottomLeft', label: 'Bottom Left'}, {value: 'bottomRight', label: 'Bottom Right'}]}
                     />
-                    <NumberInput label="Offset Inward (m)" value={ramp.offset} onChange={v => updateRamp(ramp.id, { offset: v })} />
+                    <NumberInput label="Offset Inward (m)" value={ramp.offset} onChange={v => updateRamp(ramp.id, { offset: v })} tooltip="Distance from the selected corner" />
                     <NumberInput label="Width (m)" value={ramp.width} onChange={v => updateRamp(ramp.id, { width: v })} />
-                    <NumberInput label="Length (m)" value={ramp.length} onChange={v => updateRamp(ramp.id, { length: v })} />
+                    <NumberInput label="Length (m)" value={ramp.length} onChange={v => updateRamp(ramp.id, { length: v })} tooltip="Ramp run length" />
                   </div>
                 </div>
               ))}
               {ramps.filter(r => r.deckId === deck.id).length === 0 && (
-                <p className="text-white/20 text-[10px] italic font-mono">No ramps added to this deck.</p>
+                <p className="text-[#9ca3af] text-xs italic text-center py-4">No ramps attached to this deck.</p>
               )}
             </div>
           </div>
         ))}
 
         {activeTab === 'handrails' && decks.map((deck, i) => (
-          <div key={deck.id} className="glass-panel rounded-lg border border-white/10 overflow-hidden">
-            <div className="bg-white/5 px-4 py-3 border-b border-white/10 flex justify-between items-center">
-              <h3 className="text-base font-display font-black text-white uppercase tracking-widest">Handrails for Deck {i + 1} <span className="text-white/30 text-xs ml-2">({deck.id})</span></h3>
-              <button onClick={() => addHandrail(deck.id)} className="text-cyan-400 hover:text-cyan-300 text-[10px] font-bold uppercase tracking-widest">+ Add Handrail</button>
+          <div key={deck.id} className="bg-white rounded-lg border border-[#e5e7eb] shadow-sm overflow-hidden">
+            <div className="bg-[#f9fafb] px-4 py-3 border-b border-[#e5e7eb] flex justify-between items-center">
+              <h3 className="text-sm font-bold text-[#111827] uppercase tracking-wider">Handrails for Deck {i + 1} <span className="text-[#9ca3af] text-xs ml-1 font-normal">({deck.id})</span></h3>
+              <button onClick={() => addHandrail(deck.id)} className="text-[#2563eb] hover:text-[#1d4ed8] text-[10px] font-bold uppercase tracking-wider transition-colors">+ Add Handrail</button>
             </div>
-            <div className="p-4 flex flex-col gap-3">
+            <div className="p-5 flex flex-col gap-4">
               {handrails.filter(h => h.deckId === deck.id).map((handrail, j) => (
-                <div key={handrail.id} className="bg-black/40 border border-cyan-900/40 rounded-md p-3 relative">
-                  <button onClick={() => removeHandrail(handrail.id)} className="absolute top-1.5 right-2 text-red-500 hover:text-red-400 font-bold text-sm">✕</button>
-                  <div className="grid grid-cols-2 lg:grid-cols-5 gap-3">
+                <div key={handrail.id} className="bg-[#f9fafb] border border-[#e5e7eb] rounded-md p-4 relative">
+                  <button onClick={() => removeHandrail(handrail.id)} className="absolute top-2 right-3 text-[#9ca3af] hover:text-red-500 font-bold text-sm transition-colors">✕</button>
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 mt-2">
                     <SelectInput 
-                      label="Side" 
+                      label="Attach to Side" 
                       value={handrail.side} 
                       onChange={v => updateHandrail(handrail.id, { side: v as any })}
                       options={[{value: 'top', label: 'Top'}, {value: 'bottom', label: 'Bottom'}, {value: 'left', label: 'Left'}, {value: 'right', label: 'Right'}]}
                     />
                     <SelectInput 
-                      label="Measure From" 
+                      label="Measure From Corner" 
                       value={handrail.corner} 
                       onChange={v => updateHandrail(handrail.id, { corner: v as any })}
                       options={[{value: 'topLeft', label: 'Top Left'}, {value: 'topRight', label: 'Top Right'}, {value: 'bottomLeft', label: 'Bottom Left'}, {value: 'bottomRight', label: 'Bottom Right'}]}
                     />
-                    <NumberInput label="Offset (m)" value={handrail.offset} onChange={v => updateHandrail(handrail.id, { offset: v })} />
+                    <NumberInput label="Offset Inward (m)" value={handrail.offset} onChange={v => updateHandrail(handrail.id, { offset: v })} />
                     <NumberInput label="Length (m)" value={handrail.length} onChange={v => updateHandrail(handrail.id, { length: v })} />
                     <SelectInput 
-                      label="Type" 
+                      label="Railing Type" 
                       value={handrail.type || 'standard'} 
                       onChange={v => updateHandrail(handrail.id, { type: v as any })}
                       options={[{value: 'standard', label: 'Standard'}, {value: 'heavy-duty', label: 'Heavy Duty'}, {value: 'decorative', label: 'Decorative'}]}
@@ -328,38 +332,38 @@ export const SpecificationsPanel: React.FC<SpecificationsPanelProps> = ({
                 </div>
               ))}
               {handrails.filter(h => h.deckId === deck.id).length === 0 && (
-                <p className="text-white/20 text-[10px] italic font-mono">No handrails added to this deck.</p>
+                <p className="text-[#9ca3af] text-xs italic text-center py-4">No handrails attached to this deck.</p>
               )}
             </div>
           </div>
         ))}
 
         {activeTab === 'landings' && ramps.map((ramp, i) => (
-          <div key={ramp.id} className="glass-panel rounded-lg border border-white/10 overflow-hidden">
-            <div className="bg-white/5 px-4 py-3 border-b border-white/10 flex justify-between items-center">
-              <h3 className="text-base font-display font-black text-white uppercase tracking-widest">Landings for Ramp {i + 1} <span className="text-white/30 text-xs ml-2">({ramp.id})</span></h3>
-              <button onClick={() => addLandingPad(ramp.id)} className="text-cyan-400 hover:text-cyan-300 text-[10px] font-bold uppercase tracking-widest">+ Add Landing Pad</button>
+          <div key={ramp.id} className="bg-white rounded-lg border border-[#e5e7eb] shadow-sm overflow-hidden">
+            <div className="bg-[#f9fafb] px-4 py-3 border-b border-[#e5e7eb] flex justify-between items-center">
+              <h3 className="text-sm font-bold text-[#111827] uppercase tracking-wider">Landings for Ramp {i + 1} <span className="text-[#9ca3af] text-xs ml-1 font-normal">({ramp.id})</span></h3>
+              <button onClick={() => addLandingPad(ramp.id)} className="text-[#2563eb] hover:text-[#1d4ed8] text-[10px] font-bold uppercase tracking-wider transition-colors">+ Add Landing Pad</button>
             </div>
-            <div className="p-4 flex flex-col gap-3">
+            <div className="p-5 flex flex-col gap-4">
               {(ramp.landingPads || []).map(pad => (
-                <div key={pad.id} className="flex gap-2 items-end bg-black/20 p-2 rounded relative">
-                  <button onClick={() => removeLandingPad(ramp.id, pad.id)} className="absolute top-1 right-1 text-red-500 hover:text-red-400 font-bold text-xs">✕</button>
-                  <div className="flex-1"><NumberInput label="Start Offset (m)" value={pad.offset} onChange={v => updateLandingPad(ramp.id, pad.id, { offset: Number(v) })} /></div>
-                  <div className="flex-1"><NumberInput label="Length (m)" value={pad.length} onChange={v => updateLandingPad(ramp.id, pad.id, { length: Number(v) })} /></div>
+                <div key={pad.id} className="flex gap-4 items-end bg-[#f9fafb] border border-[#e5e7eb] p-4 rounded-md relative">
+                  <button onClick={() => removeLandingPad(ramp.id, pad.id)} className="absolute top-2 right-3 text-[#9ca3af] hover:text-red-500 font-bold text-sm transition-colors">✕</button>
+                  <div className="flex-1"><NumberInput label="Start Offset (m)" value={pad.offset} onChange={v => updateLandingPad(ramp.id, pad.id, { offset: Number(v) })} tooltip="Distance from ramp start" /></div>
+                  <div className="flex-1"><NumberInput label="Length (m)" value={pad.length} onChange={v => updateLandingPad(ramp.id, pad.id, { length: Number(v) })} tooltip="Length of the landing" /></div>
                 </div>
               ))}
               {(!ramp.landingPads || ramp.landingPads.length === 0) && (
-                <p className="text-white/20 text-[9px] italic font-mono">No landing pads added.</p>
+                <p className="text-[#9ca3af] text-xs italic text-center py-4">No landing pads added.</p>
               )}
             </div>
           </div>
         ))}
 
         {activeTab === 'decks' && (
-          <div className="flex justify-between items-center gap-4 mt-4">
+          <div className="mt-2">
             <button 
               onClick={addDeck}
-              className="flex-1 py-4 border-2 border-dashed border-white/10 text-white/40 hover:text-white hover:border-white/30 hover:bg-white/5 rounded-lg font-black uppercase tracking-widest transition-all text-xs"
+              className="w-full py-4 border-2 border-dashed border-[#d1d5db] text-[#6b7280] hover:text-[#2563eb] hover:border-[#2563eb] hover:bg-[#eff6ff] rounded-lg font-bold uppercase tracking-wider transition-all text-xs shadow-sm"
             >
               + Add Another Deck
             </button>
@@ -367,14 +371,15 @@ export const SpecificationsPanel: React.FC<SpecificationsPanelProps> = ({
         )}
       </div>
 
-      <div className="mt-auto pt-4 border-t border-white/10">
+      <div className="mt-auto p-6 border-t border-[#e5e7eb] bg-[#f9fafb] shrink-0">
         <button 
           onClick={onComplete}
-          className="w-full py-4 bg-[#00d2ff] text-black font-black uppercase tracking-widest text-xs rounded-lg hover:bg-white transition-colors"
+          className="w-full py-3 bg-[#2563eb] text-white font-bold uppercase tracking-wider text-xs rounded-md shadow-sm hover:bg-[#1d4ed8] hover:shadow transition-all"
         >
-          Generate 3D Model
+          View 3D Model
         </button>
       </div>
     </div>
   );
 };
+
