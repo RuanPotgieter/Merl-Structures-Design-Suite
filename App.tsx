@@ -36,9 +36,12 @@ const App: React.FC = () => {
   const [layers, setLayers] = useState({ structure: true, ledgers: true, terrain: true, rostrums: true });
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
 
-  // Auto-calculate when inputs change
+  // Auto-calculate when inputs change with debounce
   useEffect(() => {
-    setCalculationResult(calculateDecks(decks, ramps, handrails));
+    const timeoutId = setTimeout(() => {
+      setCalculationResult(calculateDecks(decks, ramps, handrails));
+    }, 300);
+    return () => clearTimeout(timeoutId);
   }, [decks, ramps, handrails]);
 
   const switchView = (mode: ViewMode) => {

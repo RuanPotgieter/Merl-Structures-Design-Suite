@@ -1330,14 +1330,83 @@ export const calculateDecks = (
     errors: []
   };
 
+  const resolvedDecks = new Map<string, { originX: number, originZ: number, orientation: number }>();
+
+  const resolveDeck = (deckId: string): { originX: number, originZ: number, orientation: number } => {
+    if (resolvedDecks.has(deckId)) return resolvedDecks.get(deckId)!;
+    
+    const deck = decks.find(d => d.id === deckId);
+    if (!deck) return { originX: 0, originZ: 0, orientation: 0 };
+
+    if (!deck.parentId || !decks.find(d => d.id === deck.parentId)) {
+      const res = {
+        originX: Number(deck.originX) || 0,
+        originZ: Number(deck.originZ) || 0,
+        orientation: Number(deck.orientation) || 0
+      };
+      resolvedDecks.set(deckId, res);
+      return res;
+    }
+
+    const parentRes = resolveDeck(deck.parentId);
+    const parentDeck = decks.find(d => d.id === deck.parentId)!;
+    
+    let localX = 0;
+    let localZ = 0;
+    
+    const pWidth = Number(parentDeck.width) || 0;
+    const pDepth = Number(parentDeck.depth) || 0;
+    const cWidth = Number(deck.width) || 0;
+    const cDepth = Number(deck.depth) || 0;
+    const offset = Number(deck.attachOffset) || 0;
+
+    switch (deck.attachEdge) {
+      case 'front':
+        localX = offset;
+        localZ = pDepth;
+        break;
+      case 'back':
+        localX = offset;
+        localZ = -cDepth;
+        break;
+      case 'right':
+        localX = pWidth;
+        localZ = offset;
+        break;
+      case 'left':
+        localX = -cWidth;
+        localZ = offset;
+        break;
+      default:
+        localX = offset;
+        localZ = pDepth;
+    }
+
+    const rad = (parentRes.orientation * Math.PI) / 180;
+    const cos = Math.cos(rad);
+    const sin = Math.sin(rad);
+
+    const absX = localX * cos - localZ * sin + parentRes.originX;
+    const absZ = localX * sin + localZ * cos + parentRes.originZ;
+
+    const res = {
+      originX: absX,
+      originZ: absZ,
+      orientation: parentRes.orientation
+    };
+    resolvedDecks.set(deckId, res);
+    return res;
+  };
+
   decks.forEach((deck) => {
     const deckRamps = rampConfigs.filter(r => r.deckId === deck.id);
     const deckHandrails = handrailConfigs.filter(h => h.deckId === deck.id);
     const singleResult = calculateSingleDeck(deck, deckRamps, deckHandrails);
     
-    const originX = Number(deck.originX) || 0;
-    const originZ = Number(deck.originZ) || 0;
-    const orientation = Number(deck.orientation) || 0;
+    const resolved = resolveDeck(deck.id);
+    const originX = resolved.originX;
+    const originZ = resolved.originZ;
+    const orientation = resolved.orientation;
     
     const rad = (orientation * Math.PI) / 180;
     const cos = Math.cos(rad);

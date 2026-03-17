@@ -56,6 +56,25 @@ export const SpecificationsPanel: React.FC<SpecificationsPanelProps> = ({
   const addDeck = () => {
     const newDeck: DeckConfig = {
       id: `deck-${decks.length + 1}`,
+      type: 'standard',
+      width: 4.8,
+      depth: 4.8,
+      originX: 0,
+      originZ: 0,
+      orientation: 0,
+      terrain: {
+        deckHeight: 2.0,
+        groundOffsets: { origin: 0, widthEnd: 0, depthEnd: 0, diagonal: 0 }
+      }
+    };
+    onDecksChange([...decks, newDeck]);
+  };
+
+  const addRaking = () => {
+    const newDeck: DeckConfig = {
+      id: `raking-${decks.length + 1}`,
+      type: 'raking',
+      tiers: 3,
       width: 4.8,
       depth: 4.8,
       originX: 0,
@@ -193,16 +212,40 @@ export const SpecificationsPanel: React.FC<SpecificationsPanelProps> = ({
                 <h4 className="text-xs font-bold text-[#4b5563] uppercase tracking-wider mb-4 border-b border-[#e5e7eb] pb-2">Dimensions & Position</h4>
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                   <SelectInput 
-                    label="Deck Type" 
-                    value={deck.type || 'standard'} 
-                    onChange={v => updateDeck(deck.id, { type: v as any })}
-                    options={[{value: 'standard', label: 'Standard'}, {value: 'raking', label: 'Raking'}]}
+                    label="Parent Deck" 
+                    value={deck.parentId || ''} 
+                    onChange={v => updateDeck(deck.id, { parentId: v })}
+                    options={[
+                      {value: '', label: 'None (Absolute Position)'},
+                      ...decks.filter(d => d.id !== deck.id).map(d => ({ value: d.id, label: `Deck ${d.id}` }))
+                    ]}
+                    tooltip="Attach this deck to another deck"
                   />
                   <NumberInput label="Depth (m)" value={deck.depth} onChange={v => updateDeck(deck.id, { depth: v })} tooltip="Main direction length" />
                   <NumberInput label="Width (m)" value={deck.width} onChange={v => updateDeck(deck.id, { width: v })} tooltip="Cross direction length" />
-                  <NumberInput label="Origin X (m)" value={deck.originX} onChange={v => updateDeck(deck.id, { originX: v })} tooltip="X-axis position" />
-                  <NumberInput label="Origin Z (m)" value={deck.originZ} onChange={v => updateDeck(deck.id, { originZ: v })} tooltip="Z-axis position" />
-                  <NumberInput label="Orientation (°)" value={deck.orientation} onChange={v => updateDeck(deck.id, { orientation: v })} tooltip="Rotation in degrees" />
+                  
+                  {!deck.parentId ? (
+                    <>
+                      <NumberInput label="Origin X (m)" value={deck.originX} onChange={v => updateDeck(deck.id, { originX: v })} tooltip="X-axis position" />
+                      <NumberInput label="Origin Z (m)" value={deck.originZ} onChange={v => updateDeck(deck.id, { originZ: v })} tooltip="Z-axis position" />
+                      <NumberInput label="Orientation (°)" value={deck.orientation} onChange={v => updateDeck(deck.id, { orientation: v })} tooltip="Rotation in degrees" />
+                    </>
+                  ) : (
+                    <>
+                      <SelectInput 
+                        label="Attach Edge" 
+                        value={deck.attachEdge || 'front'} 
+                        onChange={v => updateDeck(deck.id, { attachEdge: v as any })}
+                        options={[
+                          {value: 'front', label: 'Front'},
+                          {value: 'back', label: 'Back'},
+                          {value: 'left', label: 'Left'},
+                          {value: 'right', label: 'Right'}
+                        ]}
+                      />
+                      <NumberInput label="Attach Offset (m)" value={deck.attachOffset || 0} onChange={v => updateDeck(deck.id, { attachOffset: v })} tooltip="Offset along the attached edge" />
+                    </>
+                  )}
                 </div>
               </div>
 
@@ -234,16 +277,40 @@ export const SpecificationsPanel: React.FC<SpecificationsPanelProps> = ({
                 <h4 className="text-xs font-bold text-[#4b5563] uppercase tracking-wider mb-4 border-b border-[#e5e7eb] pb-2">Dimensions & Position</h4>
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                   <SelectInput 
-                    label="Deck Type" 
-                    value={deck.type || 'standard'} 
-                    onChange={v => updateDeck(deck.id, { type: v as any })}
-                    options={[{value: 'standard', label: 'Standard'}, {value: 'raking', label: 'Raking'}]}
+                    label="Parent Deck" 
+                    value={deck.parentId || ''} 
+                    onChange={v => updateDeck(deck.id, { parentId: v })}
+                    options={[
+                      {value: '', label: 'None (Absolute Position)'},
+                      ...decks.filter(d => d.id !== deck.id).map(d => ({ value: d.id, label: `Deck ${d.id}` }))
+                    ]}
+                    tooltip="Attach this deck to another deck"
                   />
                   <NumberInput label="Tiers" value={deck.tiers || 3} onChange={v => updateDeck(deck.id, { tiers: v as number })} tooltip="Number of stepped tiers" />
                   <NumberInput label="Width (m)" value={deck.width} onChange={v => updateDeck(deck.id, { width: v })} tooltip="Total width of all tiers" />
-                  <NumberInput label="Origin X (m)" value={deck.originX} onChange={v => updateDeck(deck.id, { originX: v })} />
-                  <NumberInput label="Origin Z (m)" value={deck.originZ} onChange={v => updateDeck(deck.id, { originZ: v })} />
-                  <NumberInput label="Orientation (°)" value={deck.orientation} onChange={v => updateDeck(deck.id, { orientation: v })} />
+                  
+                  {!deck.parentId ? (
+                    <>
+                      <NumberInput label="Origin X (m)" value={deck.originX} onChange={v => updateDeck(deck.id, { originX: v })} />
+                      <NumberInput label="Origin Z (m)" value={deck.originZ} onChange={v => updateDeck(deck.id, { originZ: v })} />
+                      <NumberInput label="Orientation (°)" value={deck.orientation} onChange={v => updateDeck(deck.id, { orientation: v })} />
+                    </>
+                  ) : (
+                    <>
+                      <SelectInput 
+                        label="Attach Edge" 
+                        value={deck.attachEdge || 'front'} 
+                        onChange={v => updateDeck(deck.id, { attachEdge: v as any })}
+                        options={[
+                          {value: 'front', label: 'Front'},
+                          {value: 'back', label: 'Back'},
+                          {value: 'left', label: 'Left'},
+                          {value: 'right', label: 'Right'}
+                        ]}
+                      />
+                      <NumberInput label="Attach Offset (m)" value={deck.attachOffset || 0} onChange={v => updateDeck(deck.id, { attachOffset: v })} tooltip="Offset along the attached edge" />
+                    </>
+                  )}
                 </div>
               </div>
 
@@ -366,6 +433,17 @@ export const SpecificationsPanel: React.FC<SpecificationsPanelProps> = ({
               className="w-full py-4 border-2 border-dashed border-[#d1d5db] text-[#6b7280] hover:text-[#2563eb] hover:border-[#2563eb] hover:bg-[#eff6ff] rounded-lg font-bold uppercase tracking-wider transition-all text-xs shadow-sm"
             >
               + Add Another Deck
+            </button>
+          </div>
+        )}
+
+        {activeTab === 'rakings' && (
+          <div className="mt-2">
+            <button 
+              onClick={addRaking}
+              className="w-full py-4 border-2 border-dashed border-[#d1d5db] text-[#6b7280] hover:text-[#2563eb] hover:border-[#2563eb] hover:bg-[#eff6ff] rounded-lg font-bold uppercase tracking-wider transition-all text-xs shadow-sm"
+            >
+              + Add Another Raking Deck
             </button>
           </div>
         )}

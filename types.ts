@@ -85,6 +85,9 @@ export interface DeckConfig {
   originZ: number | '';
   orientation: number | '';
   terrain: TerrainConfig;
+  parentId?: string;
+  attachEdge?: 'front' | 'back' | 'left' | 'right';
+  attachOffset?: number | '';
 }
 
 export interface TerrainConfig {
