@@ -11,25 +11,61 @@ interface SpecificationsPanelProps {
   onComplete: () => void;
 }
 
-const NumberInput: React.FC<{ value: number | ''; onChange: (v: number | '') => void, label: string, tooltip?: string }> = ({ value, onChange, label, tooltip }) => (
-  <div className="flex flex-col gap-1.5">
-    <label className="text-xs font-semibold text-[#4b5563] flex justify-between items-center">
-      {label}
-      {tooltip && <span className="text-[10px] font-normal text-[#9ca3af] italic" title={tooltip}>?</span>}
-    </label>
-    <input
-      type="number"
-      className="bg-[#f9fafb] border border-[#d1d5db] text-[#111827] text-sm px-3 py-2 w-full outline-none focus:border-[#2563eb] focus:ring-1 focus:ring-[#2563eb] transition-all rounded-md shadow-sm"
-      value={value}
-      step="0.1"
-      onChange={(e) => {
-        const val = e.target.value;
-        onChange(val === '' ? '' : parseFloat(val));
-      }}
-    />
-    {tooltip && <p className="text-[10px] text-[#6b7280] leading-tight">{tooltip}</p>}
-  </div>
-);
+const NumberInput: React.FC<{ value: number | ''; onChange: (v: number | '') => void, label: string, tooltip?: string }> = ({ value, onChange, label, tooltip }) => {
+  const [localValue, setLocalValue] = useState<string>(value === '' ? '' : value.toString());
+
+  React.useEffect(() => {
+    const stringValue = value === '' ? '' : value.toString();
+    // Only update local value if it's not currently being edited (to avoid cursor jumps)
+    if (value !== '' && parseFloat(localValue) !== value) {
+      setLocalValue(stringValue);
+    } else if (value === '' && localValue !== '') {
+      setLocalValue('');
+    }
+  }, [value]);
+
+  const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const val = e.target.value;
+    setLocalValue(val);
+    
+    if (val.trim() === '') {
+      onChange('');
+      return;
+    }
+
+    let numericVal: number;
+    const lowerVal = val.toLowerCase().trim();
+    if (lowerVal.endsWith('mm')) {
+      numericVal = parseFloat(lowerVal.slice(0, -2)) / 1000;
+    } else if (lowerVal.endsWith('m')) {
+      numericVal = parseFloat(lowerVal.slice(0, -1));
+    } else {
+      numericVal = parseFloat(val);
+    }
+
+    if (!isNaN(numericVal)) {
+      onChange(numericVal);
+    }
+  };
+
+  return (
+    <div className="flex flex-col gap-1.5">
+      <label className="text-xs font-semibold text-[#4b5563] flex justify-between items-center">
+        {label}
+        {tooltip && <span className="text-[10px] font-normal text-[#9ca3af] italic" title={tooltip}>?</span>}
+      </label>
+      <input
+        type="text"
+        inputMode="decimal"
+        className="bg-[#f9fafb] border border-[#d1d5db] text-[#111827] text-sm px-3 py-2 w-full outline-none focus:border-[#2563eb] focus:ring-1 focus:ring-[#2563eb] transition-all rounded-md shadow-sm"
+        value={localValue}
+        onChange={handleChange}
+        placeholder="e.g. 2.4 or 2400mm"
+      />
+      {tooltip && <p className="text-[10px] text-[#6b7280] leading-tight">{tooltip}</p>}
+    </div>
+  );
+};
 
 const SelectInput: React.FC<{ value: string; onChange: (v: string) => void, label: string, options: {value: string, label: string}[], tooltip?: string }> = ({ value, onChange, label, options, tooltip }) => (
   <div className="flex flex-col gap-1.5">
@@ -51,7 +87,7 @@ const SelectInput: React.FC<{ value: string; onChange: (v: string) => void, labe
 export const SpecificationsPanel: React.FC<SpecificationsPanelProps> = ({
   decks, onDecksChange, ramps, onRampsChange, handrails, onHandrailsChange, onComplete
 }) => {
-  const [activeTab, setActiveTab] = useState<'decks' | 'rakings' | 'ramps' | 'handrails' | 'landings'>('decks');
+  const [activeTab, setActiveTab] = useState<'decks' | 'ramps' | 'handrails' | 'landings'>('decks');
 
   const addDeck = () => {
     const newDeck: DeckConfig = {
@@ -210,11 +246,11 @@ export const SpecificationsPanel: React.FC<SpecificationsPanelProps> = ({
                     tooltip="Attach this deck to another deck"
                   />
                   {deck.type === 'raking' ? (
-                    <NumberInput label="Tiers" value={deck.tiers || 3} onChange={v => updateDeck(deck.id, { tiers: v as number })} tooltip="Number of stepped tiers" />
+                    <NumberInput label="Tiers" value={deck.tiers ?? 3} onChange={v => updateDeck(deck.id, { tiers: v as number })} tooltip="Number of stepped tiers" />
                   ) : (
-                    <NumberInput label="Depth (m)" value={deck.depth || 4.8} onChange={v => updateDeck(deck.id, { depth: v })} tooltip="Main direction length" />
+                    <NumberInput label="Depth (m)" value={deck.depth ?? 4.8} onChange={v => updateDeck(deck.id, { depth: v })} tooltip="Main direction length" />
                   )}
-                  <NumberInput label="Width (m)" value={deck.width || 4.8} onChange={v => updateDeck(deck.id, { width: v })} tooltip="Cross direction length" />
+                  <NumberInput label="Width (m)" value={deck.width ?? 4.8} onChange={v => updateDeck(deck.id, { width: v })} tooltip="Cross direction length" />
                   
                   {!deck.parentId ? (
                     <>
@@ -235,7 +271,7 @@ export const SpecificationsPanel: React.FC<SpecificationsPanelProps> = ({
                           {value: 'right', label: 'Right'}
                         ]}
                       />
-                      <NumberInput label="Attach Offset (m)" value={deck.attachOffset || 0} onChange={v => updateDeck(deck.id, { attachOffset: v })} tooltip="Offset along the attached edge" />
+                      <NumberInput label="Attach Offset (m)" value={deck.attachOffset ?? 0} onChange={v => updateDeck(deck.id, { attachOffset: v })} tooltip="Offset along the attached edge" />
                     </>
                   )}
                   <SelectInput 
@@ -284,9 +320,9 @@ export const SpecificationsPanel: React.FC<SpecificationsPanelProps> = ({
                       onChange={v => updateRamp(ramp.id, { corner: v as any })}
                       options={[{value: 'topLeft', label: 'Top Left'}, {value: 'topRight', label: 'Top Right'}, {value: 'bottomLeft', label: 'Bottom Left'}, {value: 'bottomRight', label: 'Bottom Right'}]}
                     />
-                    <NumberInput label="Offset Inward (m)" value={ramp.offset} onChange={v => updateRamp(ramp.id, { offset: v })} tooltip="Distance from the selected corner" />
-                    <NumberInput label="Width (m)" value={ramp.width} onChange={v => updateRamp(ramp.id, { width: v })} />
-                    <NumberInput label="Length (m)" value={ramp.length} onChange={v => updateRamp(ramp.id, { length: v })} tooltip="Ramp run length" />
+                    <NumberInput label="Offset Inward (m)" value={ramp.offset ?? 0} onChange={v => updateRamp(ramp.id, { offset: v })} tooltip="Distance from the selected corner" />
+                    <NumberInput label="Width (m)" value={ramp.width ?? 1.2} onChange={v => updateRamp(ramp.id, { width: v })} />
+                    <NumberInput label="Length (m)" value={ramp.length ?? 2.4} onChange={v => updateRamp(ramp.id, { length: v })} tooltip="Ramp run length" />
                   </div>
                 </div>
               ))}
@@ -320,8 +356,8 @@ export const SpecificationsPanel: React.FC<SpecificationsPanelProps> = ({
                       onChange={v => updateHandrail(handrail.id, { corner: v as any })}
                       options={[{value: 'topLeft', label: 'Top Left'}, {value: 'topRight', label: 'Top Right'}, {value: 'bottomLeft', label: 'Bottom Left'}, {value: 'bottomRight', label: 'Bottom Right'}]}
                     />
-                    <NumberInput label="Offset Inward (m)" value={handrail.offset} onChange={v => updateHandrail(handrail.id, { offset: v })} />
-                    <NumberInput label="Length (m)" value={handrail.length} onChange={v => updateHandrail(handrail.id, { length: v })} />
+                    <NumberInput label="Offset Inward (m)" value={handrail.offset ?? 0} onChange={v => updateHandrail(handrail.id, { offset: v })} />
+                    <NumberInput label="Length (m)" value={handrail.length ?? 2.4} onChange={v => updateHandrail(handrail.id, { length: v })} />
                     <SelectInput 
                       label="Railing Type" 
                       value={handrail.type || 'standard'} 
@@ -348,8 +384,8 @@ export const SpecificationsPanel: React.FC<SpecificationsPanelProps> = ({
               {(ramp.landingPads || []).map(pad => (
                 <div key={pad.id} className="flex gap-4 items-end bg-[#f9fafb] border border-[#e5e7eb] p-4 rounded-md relative">
                   <button onClick={() => removeLandingPad(ramp.id, pad.id)} className="absolute top-2 right-3 text-[#9ca3af] hover:text-red-500 font-bold text-sm transition-colors">✕</button>
-                  <div className="flex-1"><NumberInput label="Start Offset (m)" value={pad.offset} onChange={v => updateLandingPad(ramp.id, pad.id, { offset: Number(v) })} tooltip="Distance from ramp start" /></div>
-                  <div className="flex-1"><NumberInput label="Length (m)" value={pad.length} onChange={v => updateLandingPad(ramp.id, pad.id, { length: Number(v) })} tooltip="Length of the landing" /></div>
+                  <div className="flex-1"><NumberInput label="Start Offset (m)" value={pad.offset ?? 0} onChange={v => updateLandingPad(ramp.id, pad.id, { offset: v === '' ? 0 : v })} tooltip="Distance from ramp start" /></div>
+                  <div className="flex-1"><NumberInput label="Length (m)" value={pad.length ?? 1.2} onChange={v => updateLandingPad(ramp.id, pad.id, { length: v === '' ? 0 : v })} tooltip="Length of the landing" /></div>
                 </div>
               ))}
               {(!ramp.landingPads || ramp.landingPads.length === 0) && (
