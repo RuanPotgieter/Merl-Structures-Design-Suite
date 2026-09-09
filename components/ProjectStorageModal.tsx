@@ -334,14 +334,14 @@ export const ProjectStorageModal: React.FC<ProjectStorageModalProps> = ({
                   <HardDrive size={14} className="text-amber-400" />
                   Save Specification to Local Storage
                 </h3>
-                <p className="text-[11px] font-mono text-[#94a3b8]">
+                <p className="text-sm font-mono text-[#94a3b8]">
                   Save this CAD setup directly to your browser local storage. No login required. Persists across browser refreshes and offline sessions.
                 </p>
               </div>
 
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 pt-2">
                 <div className="flex flex-col gap-1.5">
-                  <label className="text-[10px] font-mono font-bold text-[#94a3b8] uppercase tracking-wider">
+                  <label className="text-xs font-mono font-bold text-[#94a3b8] uppercase tracking-wider">
                     Site / Venue Name
                   </label>
                   <input
@@ -354,7 +354,7 @@ export const ProjectStorageModal: React.FC<ProjectStorageModalProps> = ({
                 </div>
 
                 <div className="flex flex-col gap-1.5">
-                  <label className="text-[10px] font-mono font-bold text-[#94a3b8] uppercase tracking-wider">
+                  <label className="text-xs font-mono font-bold text-[#94a3b8] uppercase tracking-wider">
                     Client / Organization
                   </label>
                   <input
@@ -374,7 +374,7 @@ export const ProjectStorageModal: React.FC<ProjectStorageModalProps> = ({
                     <div className="text-xs font-mono font-semibold text-[#f8fafc]">
                       {decks.length} Deck{decks.length !== 1 ? 's' : ''}, {ramps.length} Ramp{ramps.length !== 1 ? 's' : ''}, {handrails.length} Rail{handrails.length !== 1 ? 's' : ''}
                     </div>
-                    <div className="text-[10px] font-mono text-[#64748b]">
+                    <div className="text-xs font-mono text-[#64748b]">
                       Active project ID: {currentProject?.id || 'New Draft'}
                     </div>
                   </div>
@@ -383,7 +383,7 @@ export const ProjectStorageModal: React.FC<ProjectStorageModalProps> = ({
                 <div className="flex items-center gap-2">
                   <button
                     onClick={() => handleExportLocalFile()}
-                    className="flex items-center gap-1.5 px-3 py-1.5 bg-[#1A1D24] hover:bg-[#232733] border border-[#2b303d] rounded text-xs font-mono font-semibold text-[#cbd5e1] hover:text-amber-400 transition-all"
+                    className="flex items-center gap-1.5 px-3 py-2.5 bg-[#1A1D24] hover:bg-[#232733] border border-[#2b303d] rounded text-xs font-mono font-semibold text-[#cbd5e1] hover:text-amber-400 transition-all"
                     title="Export .cadproj file to device download folder"
                   >
                     <Download size={13} />
@@ -392,7 +392,7 @@ export const ProjectStorageModal: React.FC<ProjectStorageModalProps> = ({
 
                   <button
                     onClick={handleSaveToLocalStorage}
-                    className="flex items-center gap-1.5 px-4 py-1.5 bg-amber-500 hover:bg-amber-400 text-stone-950 rounded text-xs font-mono font-bold uppercase tracking-wider transition-all shadow-sm"
+                    className="flex items-center gap-1.5 px-4 py-2.5 bg-amber-500 hover:bg-amber-400 text-stone-950 rounded text-xs font-mono font-bold uppercase tracking-wider transition-all shadow-sm"
                   >
                     <Save size={13} />
                     Save Local
@@ -411,7 +411,7 @@ export const ProjectStorageModal: React.FC<ProjectStorageModalProps> = ({
                     <FolderOpen size={14} className="text-amber-400" />
                     Local Storage Workspaces
                   </h3>
-                  <p className="text-[11px] font-mono text-[#94a3b8]">
+                  <p className="text-sm font-mono text-[#94a3b8]">
                     Select any saved project to immediately load its scaffold configurations.
                   </p>
                 </div>
@@ -426,7 +426,7 @@ export const ProjectStorageModal: React.FC<ProjectStorageModalProps> = ({
                   />
                   <button
                     onClick={() => fileInputRef.current?.click()}
-                    className="flex items-center gap-1.5 px-3 py-1.5 bg-[#1A1D24] hover:bg-[#232733] border border-[#2b303d] hover:border-amber-400/50 rounded text-xs font-mono font-semibold text-[#cbd5e1] hover:text-amber-400 transition-all"
+                    className="flex items-center gap-1.5 px-3 py-2.5 bg-[#1A1D24] hover:bg-[#232733] border border-[#2b303d] hover:border-amber-400/50 rounded text-xs font-mono font-semibold text-[#cbd5e1] hover:text-amber-400 transition-all"
                   >
                     <Upload size={13} />
                     Import File
@@ -436,7 +436,7 @@ export const ProjectStorageModal: React.FC<ProjectStorageModalProps> = ({
                       onNewProject();
                       onClose();
                     }}
-                    className="flex items-center gap-1.5 px-3 py-1.5 bg-[#161922] hover:bg-[#1A1D24] border border-[#232733] rounded text-xs font-mono font-semibold text-[#cbd5e1] hover:text-amber-400 transition-all"
+                    className="flex items-center gap-1.5 px-3 py-2.5 bg-[#161922] hover:bg-[#1A1D24] border border-[#232733] rounded text-xs font-mono font-semibold text-[#cbd5e1] hover:text-amber-400 transition-all"
                   >
                     <Plus size={13} />
                     New Empty
@@ -448,7 +448,7 @@ export const ProjectStorageModal: React.FC<ProjectStorageModalProps> = ({
                 <div className="text-center py-12 border border-[#232733] border-dashed rounded-xl bg-[#161922]/40">
                   <HardDrive size={28} className="mx-auto text-[#64748b] mb-2 opacity-50" />
                   <p className="text-xs font-mono text-[#94a3b8] mb-1">No saved local projects yet.</p>
-                  <p className="text-[11px] font-mono text-[#64748b]">
+                  <p className="text-sm font-mono text-[#64748b]">
                     Use the "Save to Local" tab to store your active scaffold setup.
                   </p>
                 </div>
@@ -481,12 +481,12 @@ export const ProjectStorageModal: React.FC<ProjectStorageModalProps> = ({
                                 {proj.siteName}
                               </span>
                               {isCurrent && (
-                                <span className="text-[9px] font-mono px-1.5 py-0.2 rounded bg-amber-400/20 text-amber-300 border border-amber-400/40">
+                                <span className="text-xs font-mono px-1.5 py-0.2 rounded bg-amber-400/20 text-amber-300 border border-amber-400/40">
                                   ACTIVE
                                 </span>
                               )}
                             </div>
-                            <div className="text-[10px] font-mono text-[#64748b] flex items-center gap-3 mt-0.5">
+                            <div className="text-xs font-mono text-[#64748b] flex items-center gap-3 mt-0.5">
                               <span>Client: {proj.clientName}</span>
                               <span>•</span>
                               <span>{dateStr}</span>
@@ -514,7 +514,7 @@ export const ProjectStorageModal: React.FC<ProjectStorageModalProps> = ({
                           </button>
                           <button
                             onClick={() => handleOpenLocalProject(proj)}
-                            className="px-3 py-1 bg-[#1A1D24] group-hover:bg-amber-400 group-hover:text-stone-950 text-amber-400 rounded text-xs font-mono font-semibold transition-all border border-[#2b303d] group-hover:border-transparent"
+                            className="px-3 py-2 bg-[#1A1D24] group-hover:bg-amber-400 group-hover:text-stone-950 text-amber-400 rounded text-xs font-mono font-semibold transition-all border border-[#2b303d] group-hover:border-transparent"
                           >
                             Load
                           </button>
@@ -535,17 +535,17 @@ export const ProjectStorageModal: React.FC<ProjectStorageModalProps> = ({
                   <Share2 size={14} className="text-amber-400" />
                   Share Scaffold Specification
                 </h3>
-                <p className="text-[11px] font-mono text-[#94a3b8]">
+                <p className="text-sm font-mono text-[#94a3b8]">
                   Share this full configuration instantly with team members, contractors, or clients. Opening the link automatically loads all decks, terrain, and calculations in their browser.
                 </p>
               </div>
 
               {/* 1-Click Share URL Box */}
               <div className="flex flex-col gap-1.5 p-3.5 bg-[#161922] border border-[#232733] rounded-lg">
-                <label className="text-[10px] font-mono font-bold text-amber-400 uppercase tracking-wider flex items-center justify-between">
+                <label className="text-xs font-mono font-bold text-amber-400 uppercase tracking-wider flex items-center justify-between">
                   <span>Direct Web Share URL</span>
                   {copiedLink && (
-                    <span className="text-[#34d399] flex items-center gap-1 normal-case text-[11px]">
+                    <span className="text-[#34d399] flex items-center gap-1 normal-case text-sm">
                       <Check size={12} /> Copied to Clipboard!
                     </span>
                   )}
@@ -555,11 +555,11 @@ export const ProjectStorageModal: React.FC<ProjectStorageModalProps> = ({
                     type="text"
                     readOnly
                     value={shareUrl}
-                    className="bg-[#12151C] border border-[#2b303d] text-[#94a3b8] font-mono text-[11px] rounded px-3 py-1.5 w-full outline-none select-all"
+                    className="bg-[#12151C] border border-[#2b303d] text-[#94a3b8] font-mono text-sm rounded px-3 py-2.5 w-full outline-none select-all"
                   />
                   <button
                     onClick={handleCopyLink}
-                    className={`flex items-center gap-1.5 px-3.5 py-1.5 rounded text-xs font-mono font-semibold transition-all shrink-0 ${
+                    className={`flex items-center gap-1.5 px-3.5 py-2.5 rounded text-xs font-mono font-semibold transition-all shrink-0 ${
                       copiedLink
                         ? 'bg-[#10b981] text-[#090d16]'
                         : 'bg-amber-500 hover:bg-amber-400 text-stone-950'
@@ -580,10 +580,10 @@ export const ProjectStorageModal: React.FC<ProjectStorageModalProps> = ({
                 >
                   <div className="flex items-center justify-between w-full text-amber-400">
                     <Share2 size={16} />
-                    <span className="text-[10px] font-mono uppercase bg-amber-400/10 px-1.5 py-0.5 rounded">Native</span>
+                    <span className="text-xs font-mono uppercase bg-amber-400/10 px-1.5 py-2 rounded">Native</span>
                   </div>
                   <span className="text-xs font-mono font-semibold text-[#f8fafc] mt-1">OS Share Sheet</span>
-                  <span className="text-[10px] font-mono text-[#64748b]">Share via AirDrop, WhatsApp, Slack, Mail</span>
+                  <span className="text-xs font-mono text-[#64748b]">Share via AirDrop, WhatsApp, Slack, Mail</span>
                 </button>
 
                 {/* Export .cadproj File */}
@@ -593,10 +593,10 @@ export const ProjectStorageModal: React.FC<ProjectStorageModalProps> = ({
                 >
                   <div className="flex items-center justify-between w-full text-[#38bdf8]">
                     <Download size={16} />
-                    <span className="text-[10px] font-mono uppercase bg-[#38bdf8]/10 px-1.5 py-0.5 rounded">.CADPROJ</span>
+                    <span className="text-xs font-mono uppercase bg-[#38bdf8]/10 px-1.5 py-2 rounded">.CADPROJ</span>
                   </div>
                   <span className="text-xs font-mono font-semibold text-[#f8fafc] mt-1">Export CAD File</span>
-                  <span className="text-[10px] font-mono text-[#64748b]">Download standalone offline project file</span>
+                  <span className="text-xs font-mono text-[#64748b]">Download standalone offline project file</span>
                 </button>
 
                 {/* Copy JSON */}
@@ -606,12 +606,12 @@ export const ProjectStorageModal: React.FC<ProjectStorageModalProps> = ({
                 >
                   <div className="flex items-center justify-between w-full text-[#a855f7]">
                     <FileText size={16} />
-                    <span className="text-[10px] font-mono uppercase bg-[#a855f7]/10 px-1.5 py-0.5 rounded">
+                    <span className="text-xs font-mono uppercase bg-[#a855f7]/10 px-1.5 py-2 rounded">
                       {copiedJson ? 'COPIED' : 'JSON'}
                     </span>
                   </div>
                   <span className="text-xs font-mono font-semibold text-[#f8fafc] mt-1">Copy Data Object</span>
-                  <span className="text-[10px] font-mono text-[#64748b]">Raw JSON payload for developer scripts</span>
+                  <span className="text-xs font-mono text-[#64748b]">Raw JSON payload for developer scripts</span>
                 </button>
               </div>
             </div>
@@ -621,12 +621,12 @@ export const ProjectStorageModal: React.FC<ProjectStorageModalProps> = ({
 
         {/* Modal Footer */}
         <div className="px-5 py-3 border-t border-[#232733] bg-[#1A1D24] flex items-center justify-between">
-          <span className="text-[10px] font-mono text-[#64748b]">
+          <span className="text-xs font-mono text-[#64748b]">
             MERL Local Engine • Browser Sandboxed Storage
           </span>
           <button
             onClick={onClose}
-            className="px-4 py-1.5 bg-[#12151C] hover:bg-[#232733] border border-[#2b303d] rounded text-xs font-mono font-semibold text-[#cbd5e1] hover:text-[#f8fafc] transition-all"
+            className="px-4 py-2.5 bg-[#12151C] hover:bg-[#232733] border border-[#2b303d] rounded text-xs font-mono font-semibold text-[#cbd5e1] hover:text-[#f8fafc] transition-all"
           >
             Done
           </button>

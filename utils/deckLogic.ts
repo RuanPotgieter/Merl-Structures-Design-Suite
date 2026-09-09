@@ -167,25 +167,41 @@ export const getLedgerElevations = (f1: Foot, f2: Foot): number[] => {
   }
   
   if (common.length === 0) return [];
-  
   common.sort((a, b) => a - b);
   
-  const selected: number[] = [common[0]]; // Kicker
-  let lastElev = common[0];
-  
-  for (let i = 1; i < common.length; i++) {
-    if (common[i] - lastElev >= 0.95) { // 1m intervals for ledgers
-      selected.push(common[i]);
-      lastElev = common[i];
+  const selected: number[] = [];
+  const kicker = common[0];
+  selected.push(kicker);
+
+  const highestCommon = common[common.length - 1];
+  const groundAvg = (f1.groundHeight + f2.groundHeight) / 2;
+  const heightAboveGround = highestCommon - groundAvg;
+
+  if (heightAboveGround > 1.75) {
+    // Doubling up: one at top, and every 1m down
+    let curr = highestCommon;
+    while (curr > kicker + 0.5) { // don't overlap with kicker
+      selected.push(curr);
+      // find next common elevation approx 1m down
+      const nextElev = common.slice().reverse().find(e => curr - e >= 0.95);
+      if (!nextElev) break;
+      curr = nextElev;
+    }
+  } else {
+    // Just 1m intervals up from kicker
+    let lastElev = kicker;
+    for (let i = 1; i < common.length; i++) {
+      if (common[i] - lastElev >= 0.95) {
+        selected.push(common[i]);
+        lastElev = common[i];
+      }
+    }
+    if (highestCommon - lastElev >= 1.4) {
+      selected.push(highestCommon);
     }
   }
   
-  const highestCommon = common[common.length - 1];
-  if (highestCommon - lastElev >= 1.4) {
-    selected.push(highestCommon);
-  }
-  
-  return selected;
+  return Array.from(new Set(selected)).sort((a, b) => a - b);
 };
 
 const calculateRakingDeck = (
@@ -637,40 +653,42 @@ const calculateRakingDeck = (
       const hB = topB - botB;
       const maxH = Math.max(hA, hB);
 
-      if (!isHighDeck || maxH <= 2.2) {
+      const zBaseBot = Math.min(botA, botB);
+      const zBaseTop = Math.max(topA, topB);
+
+      if (!isHighDeck || maxH <= 3.0) {
+        if (typeof (globalThis as any).addBraceSafe === 'function' || bracesArray.length > -100) {
+           // Just push normally
+           const brace = {
+            id: prefix,
+            startPos: { x: xA, y: yA, z: lowAtA ? botA : topA },
+            endPos: { x: xB, y: yB, z: lowAtA ? topB : botB },
+            color: '#dc2626'
+           };
+           // In flat deck, we need to check duplicates if addBraceSafe is available, 
+           // but since we are replacing a local function, we can just do a simple check.
+           if (!bracesArray.find(b => b.id === prefix)) {
+               bracesArray.push(brace);
+           }
+        }
+      } else {
+        // Deck > 3m: Brace cant stretch full height. Second layer 1m above first.
+        const firstZLow = zBaseBot;
+        const firstZHigh = zBaseBot + 2.0;
+
         bracesArray.push({
-          id: prefix,
-          startPos: { x: xA, y: yA, z: lowAtA ? botA : topA },
-          endPos: { x: xB, y: yB, z: lowAtA ? topB : botB },
+          id: prefix + "_L1",
+          startPos: { x: xA, y: yA, z: lowAtA ? firstZLow : firstZHigh },
+          endPos: { x: xB, y: yB, z: lowAtA ? firstZHigh : firstZLow },
           color: '#dc2626'
         });
-      } else {
-        const maxBraceSpan = 2.0;
-        let currentOffset = 0;
-        let layer = 0;
 
-        while (currentOffset < maxH - 0.1) {
-          let span = Math.min(maxBraceSpan, maxH - currentOffset);
-          
-          let zStartA = botA + currentOffset;
-          let zStartB = botB + currentOffset;
-          
-          let zEndA = zStartA + span;
-          let zEndB = zStartB + span;
-
-          if (zEndA > topA) zEndA = topA;
-          if (zEndB > topB) zEndB = topB;
-
-          bracesArray.push({
-            id: `${prefix}_L${layer}`,
-            startPos: { x: xA, y: yA, z: lowAtA ? zStartA : zEndA },
-            endPos: { x: xB, y: yB, z: lowAtA ? zEndB : zStartB },
-            color: '#dc2626'
-          });
-
-          currentOffset += 1.0;
-          layer++;
-        }
+        bracesArray.push({
+          id: prefix + "_L2",
+          startPos: { x: xA, y: yA, z: lowAtA ? firstZLow + 1.0 : firstZHigh + 1.0 },
+          endPos: { x: xB, y: yB, z: lowAtA ? firstZHigh + 1.0 : firstZLow + 1.0 },
+          color: '#dc2626'
+        });
       }
     };
 
@@ -1725,37 +1743,42 @@ const calculateSingleDeck = (
       const hB = topB - botB;
       const maxH = Math.max(hA, hB);
 
-      if (!isHighDeck || maxH <= 2.2) {
-        // Use addBraceSafe instead of direct push to prevent duplicates in flat deck
-        addBraceSafe(prefix,
-          { x: xA, y: yA, z: lowAtA ? botA : topA },
-          { x: xB, y: yB, z: lowAtA ? topB : botB }
-        );
-      } else {
-        const maxBraceSpan = 2.0;
-        let currentOffset = 0;
-        let layer = 0;
+      const zBaseBot = Math.min(botA, botB);
+      const zBaseTop = Math.max(topA, topB);
 
-        while (currentOffset < maxH - 0.1) {
-          let span = Math.min(maxBraceSpan, maxH - currentOffset);
-          
-          let zStartA = botA + currentOffset;
-          let zStartB = botB + currentOffset;
-          
-          let zEndA = zStartA + span;
-          let zEndB = zStartB + span;
-
-          if (zEndA > topA) zEndA = topA;
-          if (zEndB > topB) zEndB = topB;
-
-          addBraceSafe(`${prefix}_L${layer}`,
-            { x: xA, y: yA, z: lowAtA ? zStartA : zEndA },
-            { x: xB, y: yB, z: lowAtA ? zEndB : zStartB }
-          );
-
-          currentOffset += 1.0;
-          layer++;
+      if (!isHighDeck || maxH <= 3.0) {
+        if (typeof (globalThis as any).addBraceSafe === 'function' || bracesArray.length > -100) {
+           // Just push normally
+           const brace = {
+            id: prefix,
+            startPos: { x: xA, y: yA, z: lowAtA ? botA : topA },
+            endPos: { x: xB, y: yB, z: lowAtA ? topB : botB },
+            color: '#dc2626'
+           };
+           // In flat deck, we need to check duplicates if addBraceSafe is available, 
+           // but since we are replacing a local function, we can just do a simple check.
+           if (!bracesArray.find(b => b.id === prefix)) {
+               bracesArray.push(brace);
+           }
         }
+      } else {
+        // Deck > 3m: Brace cant stretch full height. Second layer 1m above first.
+        const firstZLow = zBaseBot;
+        const firstZHigh = zBaseBot + 2.0;
+
+        bracesArray.push({
+          id: prefix + "_L1",
+          startPos: { x: xA, y: yA, z: lowAtA ? firstZLow : firstZHigh },
+          endPos: { x: xB, y: yB, z: lowAtA ? firstZHigh : firstZLow },
+          color: '#dc2626'
+        });
+
+        bracesArray.push({
+          id: prefix + "_L2",
+          startPos: { x: xA, y: yA, z: lowAtA ? firstZLow + 1.0 : firstZHigh + 1.0 },
+          endPos: { x: xB, y: yB, z: lowAtA ? firstZHigh + 1.0 : firstZLow + 1.0 },
+          color: '#dc2626'
+        });
       }
     };
 

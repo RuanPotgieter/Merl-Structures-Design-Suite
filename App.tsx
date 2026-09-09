@@ -1,6 +1,6 @@
-import React, { useState, useEffect, useMemo, useCallback } from 'react';
+import React, { useState, useEffect, useMemo, useCallback, Suspense, lazy } from 'react';
 import { calculateDecks } from './utils/deckLogic';
-import { DeckVisualizer3D } from './components/DeckVisualizer3D';
+const DeckVisualizer3D = lazy(() => import('./components/DeckVisualizer3D').then(module => ({ default: module.DeckVisualizer3D })));
 import { SpecificationsPanel } from './components/SpecificationsPanel';
 import { BillOfMaterials } from './components/BillOfMaterials';
 import { StatsPanel } from './components/StatsPanel';
@@ -201,11 +201,11 @@ const App: React.FC = () => {
                 <span className="font-mono font-bold text-xs md:text-sm tracking-wider text-[#f8fafc] leading-none hidden sm:inline">
                   MERL <span className="text-amber-400">MAGIC</span>
                 </span>
-                <span className="text-[9px] font-mono font-semibold uppercase px-1.5 py-0.5 rounded bg-[#1e222d] text-[#94a3b8] border border-[#2e3444] leading-none hidden lg:inline">
+                <span className="text-xs font-mono font-semibold uppercase px-1.5 py-2 rounded bg-[#1e222d] text-[#94a3b8] border border-[#2e3444] leading-none hidden lg:inline">
                   CAD
                 </span>
               </div>
-              <span className="text-[9px] font-mono text-[#64748b] tracking-wider uppercase hidden sm:inline leading-tight mt-0.5">
+              <span className="text-xs font-mono text-[#64748b] tracking-wider uppercase hidden sm:inline leading-tight mt-0.5">
                 Kwikstage Engineering
               </span>
             </div>
@@ -216,14 +216,14 @@ const App: React.FC = () => {
           {/* Active Project Pill */}
           <button
             onClick={() => openStorageModal('save')}
-            className="flex items-center gap-2.5 px-3 py-1 bg-[#161922] hover:bg-[#1d212d] border border-[#272d3b] hover:border-amber-500/40 rounded-md text-left transition-all max-w-[150px] md:max-w-[280px] group shadow-inner"
+            className="flex items-center gap-2.5 px-3 py-2 bg-[#161922] hover:bg-[#1d212d] border border-[#272d3b] hover:border-amber-500/40 rounded-md text-left transition-all max-w-[150px] md:max-w-[280px] group shadow-inner"
             title="Click to rename or edit project details"
           >
             <div className="min-w-0 flex-1">
-              <div className="text-[11px] font-mono font-semibold text-[#f8fafc] truncate group-hover:text-amber-400 transition-colors leading-tight">
+              <div className="text-sm font-mono font-semibold text-[#f8fafc] truncate group-hover:text-amber-400 transition-colors leading-tight">
                 {currentProject?.siteName || 'Festival Main Stage'}
               </div>
-              <div className="text-[9px] font-mono text-[#78859b] truncate leading-tight hidden sm:block">
+              <div className="text-xs font-mono text-[#78859b] truncate leading-tight hidden sm:block">
                 Client: {currentProject?.clientName || 'Standard Client'}
               </div>
             </div>
@@ -235,7 +235,7 @@ const App: React.FC = () => {
         <nav className="hidden sm:flex items-center bg-[#161922] p-1 rounded-lg border border-[#272d3b] shadow-inner absolute left-1/2 -translate-x-1/2">
           <button
             onClick={() => setCurrentScreen('specs')}
-            className={`flex items-center gap-1.5 px-3 py-1.5 rounded-md text-xs font-mono font-medium transition-all ${
+            className={`flex items-center gap-1.5 px-3 py-2.5 rounded-md text-xs font-mono font-medium transition-all ${
               currentScreen === 'specs'
                 ? 'bg-[#222734] text-amber-400 border border-[#343b4d] shadow-sm font-semibold'
                 : 'text-[#94a3b8] hover:text-[#f8fafc] hover:bg-[#1d212c] border border-transparent'
@@ -248,7 +248,7 @@ const App: React.FC = () => {
 
           <button
             onClick={() => setCurrentScreen('model')}
-            className={`flex items-center gap-1.5 px-3 py-1.5 rounded-md text-xs font-mono font-medium transition-all ${
+            className={`flex items-center gap-1.5 px-3 py-2.5 rounded-md text-xs font-mono font-medium transition-all ${
               currentScreen === 'model'
                 ? 'bg-[#222734] text-amber-400 border border-[#343b4d] shadow-sm font-semibold'
                 : 'text-[#94a3b8] hover:text-[#f8fafc] hover:bg-[#1d212c] border border-transparent'
@@ -261,7 +261,7 @@ const App: React.FC = () => {
 
           <button
             onClick={() => setCurrentScreen('bom')}
-            className={`flex items-center gap-1.5 px-3 py-1.5 rounded-md text-xs font-mono font-medium transition-all ${
+            className={`flex items-center gap-1.5 px-3 py-2.5 rounded-md text-xs font-mono font-medium transition-all ${
               currentScreen === 'bom'
                 ? 'bg-[#222734] text-amber-400 border border-[#343b4d] shadow-sm font-semibold'
                 : 'text-[#94a3b8] hover:text-[#f8fafc] hover:bg-[#1d212c] border border-transparent'
@@ -279,7 +279,7 @@ const App: React.FC = () => {
           {/* Quick Save to Local Storage */}
           <button
             onClick={handleQuickSave}
-            className="flex items-center gap-1.5 px-3 py-1.5 bg-amber-500 hover:bg-amber-400 text-stone-950 rounded-md text-xs font-mono font-bold transition-all shadow-sm active:scale-95"
+            className="flex items-center gap-1.5 px-3 py-2.5 bg-amber-500 hover:bg-amber-400 text-stone-950 rounded-md text-xs font-mono font-bold transition-all shadow-sm active:scale-95"
             title="Quick save changes to local storage"
           >
             <Save size={13} />
@@ -289,7 +289,7 @@ const App: React.FC = () => {
           {/* Open Local Storage Projects */}
           <button
             onClick={() => openStorageModal('open')}
-            className="flex items-center gap-1.5 px-2.5 md:px-3 py-1.5 bg-[#161922] hover:bg-[#1e222e] text-[#cbd5e1] hover:text-[#f8fafc] border border-[#272d3b] hover:border-[#384052] rounded-md text-xs font-mono font-medium transition-all"
+            className="flex items-center gap-1.5 px-2.5 md:px-3 py-2.5 bg-[#161922] hover:bg-[#1e222e] text-[#cbd5e1] hover:text-[#f8fafc] border border-[#272d3b] hover:border-[#384052] rounded-md text-xs font-mono font-medium transition-all"
             title="Open project from storage or file"
           >
             <FolderOpen size={13} className="text-[#8e9cb2]" />
@@ -299,7 +299,7 @@ const App: React.FC = () => {
           {/* Share Project */}
           <button
             onClick={() => openStorageModal('share')}
-            className="flex items-center gap-1.5 px-2.5 md:px-3 py-1.5 bg-[#161922] hover:bg-[#1e222e] text-[#cbd5e1] hover:text-[#f8fafc] border border-[#272d3b] hover:border-[#384052] rounded-md text-xs font-mono font-medium transition-all"
+            className="flex items-center gap-1.5 px-2.5 md:px-3 py-2.5 bg-[#161922] hover:bg-[#1e222e] text-[#cbd5e1] hover:text-[#f8fafc] border border-[#272d3b] hover:border-[#384052] rounded-md text-xs font-mono font-medium transition-all"
             title="Share project link or export CAD JSON"
           >
             <Share2 size={13} className="text-[#8e9cb2]" />
@@ -309,7 +309,7 @@ const App: React.FC = () => {
           {/* New Project */}
           <button
             onClick={handleNewProject}
-            className="p-1.5 md:px-2.5 md:py-1.5 bg-[#161922] hover:bg-[#1e222e] text-[#94a3b8] hover:text-[#f8fafc] border border-[#272d3b] hover:border-[#384052] rounded-md text-xs font-mono font-medium transition-all"
+            className="p-1.5 md:px-2.5 md:py-2.5 bg-[#161922] hover:bg-[#1e222e] text-[#94a3b8] hover:text-[#f8fafc] border border-[#272d3b] hover:border-[#384052] rounded-md text-xs font-mono font-medium transition-all"
             title="Create clean new project"
           >
             <Plus size={14} />
@@ -341,12 +341,12 @@ const App: React.FC = () => {
                   </div>
                   <div>
                     <span className="text-xs font-mono font-bold text-[#f8fafc] block">Parametric Specifications Workbench</span>
-                    <span className="text-[11px] text-[#7e8b9f] block">Dedicated parameter tuning with maximum editing space</span>
+                    <span className="text-sm text-[#7e8b9f] block">Dedicated parameter tuning with maximum editing space</span>
                   </div>
                 </div>
                 <button
                   onClick={() => setCurrentScreen('model')}
-                  className="flex items-center gap-1.5 px-3 py-1.5 bg-[#1c202c] hover:bg-amber-500 text-amber-400 hover:text-stone-950 border border-amber-500/30 rounded-md text-xs font-mono font-semibold transition-all"
+                  className="flex items-center gap-1.5 px-3 py-2.5 bg-[#1c202c] hover:bg-amber-500 text-amber-400 hover:text-stone-950 border border-amber-500/30 rounded-md text-xs font-mono font-semibold transition-all"
                 >
                   <span>3D Viewport</span>
                   <ArrowRight size={12} />
@@ -369,17 +369,19 @@ const App: React.FC = () => {
         {currentScreen === 'model' && (
           <div className="w-full h-full relative overflow-hidden bg-[#e5e7eb]">
             <ErrorBoundary fallbackTitle="3D Stage CAD Viewport Restored">
-              <DeckVisualizer3D 
-                data={calculationResult} 
-                onSelect={handleSelection} 
-                selectionId={selection?.id || null} 
-                layers={layers}
-                active={is3DActive}
-              />
+              <Suspense fallback={<div className="flex w-full h-full items-center justify-center bg-slate-900 text-amber-500 font-mono text-sm tracking-wider">LOADING 3D ENGINE...</div>}>
+                <DeckVisualizer3D 
+                  data={calculationResult} 
+                  onSelect={handleSelection} 
+                  selectionId={selection?.id || null} 
+                  layers={layers}
+                  active={is3DActive}
+                />
+              </Suspense>
             </ErrorBoundary>
 
             {/* Decluttered Minimalist HUD Status Pill */}
-            <div className="absolute left-1/2 -translate-x-1/2 bottom-3 z-20 flex items-center gap-3 px-3 py-1 bg-slate-900/80 backdrop-blur-md rounded-full border border-slate-700/60 shadow-md pointer-events-auto text-[10px] font-mono text-slate-300">
+            <div className="absolute left-1/2 -translate-x-1/2 bottom-3 z-20 flex items-center gap-3 px-3 py-2 bg-slate-900/80 backdrop-blur-md rounded-full border border-slate-700/60 shadow-md pointer-events-auto text-xs font-mono text-slate-300">
               <div className="flex items-center gap-1.5">
                 <span className={`w-1.5 h-1.5 rounded-full ${calculationResult.status === 'SOLVED' ? 'bg-emerald-400' : 'bg-amber-400'}`}></span>
                 <span className="font-semibold text-slate-100">
@@ -396,7 +398,7 @@ const App: React.FC = () => {
             <div className="absolute right-3 top-3 z-20">
               <button
                 onClick={() => setIsLayersMenuOpen(!isLayersMenuOpen)}
-                className="flex items-center gap-1.5 px-2.5 py-1 bg-slate-900/80 backdrop-blur-md border border-slate-700/60 rounded-md text-[11px] font-mono text-slate-200 hover:text-white hover:bg-slate-800 shadow-md transition-all"
+                className="flex items-center gap-1.5 px-2.5 py-2 bg-slate-900/80 backdrop-blur-md border border-slate-700/60 rounded-md text-sm font-mono text-slate-200 hover:text-white hover:bg-slate-800 shadow-md transition-all"
                 title="Toggle Layers"
               >
                 <Layers size={10} className="text-amber-400" />
@@ -405,22 +407,22 @@ const App: React.FC = () => {
 
               {isLayersMenuOpen && (
                 <div className="absolute right-0 top-8 bg-slate-900/95 backdrop-blur-md border border-slate-700/60 p-2.5 rounded-lg flex flex-col gap-2 w-44 shadow-2xl animate-in fade-in duration-150">
-                  <span className="text-[9px] font-mono font-bold text-slate-400 uppercase tracking-wider border-b border-slate-700/60 pb-1">
+                  <span className="text-xs font-mono font-bold text-slate-400 uppercase tracking-wider border-b border-slate-700/60 pb-1">
                     Scaffold Layers
                   </span>
-                  <label className="flex items-center gap-2 cursor-pointer text-[11px] font-mono text-slate-200 hover:text-amber-400">
+                  <label className="flex items-center gap-2 cursor-pointer text-sm font-mono text-slate-200 hover:text-amber-400">
                     <input type="checkbox" checked={layers.structure} onChange={e => setLayers({...layers, structure: e.target.checked})} className="rounded bg-slate-800 border-slate-700 text-amber-500 accent-amber-500 w-3 h-3" />
                     <span>Leg Structure</span>
                   </label>
-                  <label className="flex items-center gap-2 cursor-pointer text-[11px] font-mono text-slate-200 hover:text-amber-400">
+                  <label className="flex items-center gap-2 cursor-pointer text-sm font-mono text-slate-200 hover:text-amber-400">
                     <input type="checkbox" checked={layers.ledgers} onChange={e => setLayers({...layers, ledgers: e.target.checked})} className="rounded bg-slate-800 border-slate-700 text-amber-500 accent-amber-500 w-3 h-3" />
                     <span>Ledgers</span>
                   </label>
-                  <label className="flex items-center gap-2 cursor-pointer text-[11px] font-mono text-slate-200 hover:text-amber-400">
+                  <label className="flex items-center gap-2 cursor-pointer text-sm font-mono text-slate-200 hover:text-amber-400">
                     <input type="checkbox" checked={layers.terrain} onChange={e => setLayers({...layers, terrain: e.target.checked})} className="rounded bg-slate-800 border-slate-700 text-amber-500 accent-amber-500 w-3 h-3" />
                     <span>Terrain Surface</span>
                   </label>
-                  <label className="flex items-center gap-2 cursor-pointer text-[11px] font-mono text-slate-200 hover:text-amber-400">
+                  <label className="flex items-center gap-2 cursor-pointer text-sm font-mono text-slate-200 hover:text-amber-400">
                     <input type="checkbox" checked={layers.rostrums} onChange={e => setLayers({...layers, rostrums: e.target.checked})} className="rounded bg-slate-800 border-slate-700 text-amber-500 accent-amber-500 w-3 h-3" />
                     <span>Deck Rostrums</span>
                   </label>
@@ -437,7 +439,7 @@ const App: React.FC = () => {
               
               <div className="flex flex-col lg:flex-row gap-6 items-start justify-between">
                 <div className="flex-1">
-                  <div className="inline-flex items-center gap-2 px-2.5 py-1 rounded-md bg-[#161922] border border-[#272d3b] text-[11px] font-mono text-amber-400 mb-2.5">
+                  <div className="inline-flex items-center gap-2 px-2.5 py-2 rounded-md bg-[#161922] border border-[#272d3b] text-sm font-mono text-amber-400 mb-2.5">
                     <Boxes size={13} className="text-amber-400" />
                     PARTS SPECIFICATION SCHEDULE
                   </div>
@@ -459,7 +461,7 @@ const App: React.FC = () => {
                   </h3>
                   <button 
                     onClick={() => window.print()} 
-                    className="px-3.5 py-1.5 bg-[#12151d] border border-[#2d3445] text-xs font-mono font-medium text-[#cbd5e1] hover:text-amber-400 hover:border-amber-400/40 transition-all rounded-md shadow-sm flex items-center gap-2"
+                    className="px-3.5 py-2.5 bg-[#12151d] border border-[#2d3445] text-xs font-mono font-medium text-[#cbd5e1] hover:text-amber-400 hover:border-amber-400/40 transition-all rounded-md shadow-sm flex items-center gap-2"
                   >
                     Export Schedule / Print
                   </button>
@@ -483,7 +485,7 @@ const App: React.FC = () => {
           }`}
         >
           <Sliders size={18} />
-          <span className="text-[10px] font-mono font-medium">Specs</span>
+          <span className="text-xs font-mono font-medium">Specs</span>
         </button>
 
         <button
@@ -495,7 +497,7 @@ const App: React.FC = () => {
           }`}
         >
           <Box size={18} />
-          <span className="text-[10px] font-mono font-medium">3D View</span>
+          <span className="text-xs font-mono font-medium">3D View</span>
         </button>
 
         <button
@@ -507,7 +509,7 @@ const App: React.FC = () => {
           }`}
         >
           <ClipboardList size={18} />
-          <span className="text-[10px] font-mono font-medium">BOM</span>
+          <span className="text-xs font-mono font-medium">BOM</span>
         </button>
       </nav>
 

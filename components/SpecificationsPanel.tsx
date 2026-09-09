@@ -64,11 +64,11 @@ const CadNumberInput: React.FC<{
   return (
     <div className="flex flex-col gap-1">
       <div className="flex justify-between items-center">
-        <label className="text-[11px] font-mono font-medium text-[#94a3b8] flex items-center gap-1.5">
+        <label className="text-sm font-mono font-medium text-[#94a3b8] flex items-center gap-1.5">
           {label}
         </label>
         {tooltip && (
-          <span className="text-[10px] font-mono text-[#64748b] cursor-help" title={tooltip}>
+          <span className="text-xs font-mono text-[#64748b] cursor-help" title={tooltip}>
             ⓘ
           </span>
         )}
@@ -80,7 +80,7 @@ const CadNumberInput: React.FC<{
           inputMode="decimal"
           autoComplete="off"
           spellCheck={false}
-          className="bg-[#161922] border border-[#272d3b] text-[#f8fafc] font-mono text-xs rounded-md px-2.5 py-1.5 pr-8 w-full outline-none focus:border-amber-400 focus:ring-1 focus:ring-amber-400/30 transition-all shadow-inner placeholder-[#475569]"
+          className="bg-[#161922] border border-[#272d3b] text-[#f8fafc] font-mono text-xs rounded-md px-2.5 py-2.5 pr-8 w-full outline-none focus:border-amber-400 focus:ring-1 focus:ring-amber-400/30 transition-all shadow-inner placeholder-[#475569]"
           value={localValue}
           onFocus={() => { isFocusedRef.current = true; }}
           onBlur={() => { isFocusedRef.current = false; }}
@@ -94,12 +94,12 @@ const CadNumberInput: React.FC<{
           placeholder={placeholder}
         />
         {unit && (
-          <span className="absolute right-2.5 top-1/2 -translate-y-1/2 text-[10px] font-mono font-semibold text-[#64748b] select-none pointer-events-none uppercase">
+          <span className="absolute right-2.5 top-1/2 -translate-y-1/2 text-xs font-mono font-semibold text-[#64748b] select-none pointer-events-none uppercase">
             {unit}
           </span>
         )}
       </div>
-      {tooltip && <p className="text-[10px] font-mono text-[#64748b] leading-tight mt-0.5">{tooltip}</p>}
+      {tooltip && <p className="text-xs font-mono text-[#64748b] leading-tight mt-0.5">{tooltip}</p>}
     </div>
   );
 });
@@ -171,10 +171,10 @@ const CadDimensionField: React.FC<{
   return (
     <div className="flex flex-col gap-1.5 p-2.5 rounded-lg bg-[#141721] border border-[#242937]">
       <div className="flex justify-between items-center">
-        <label className="text-[11px] font-mono font-medium text-[#94a3b8] flex items-center gap-1.5">
+        <label className="text-sm font-mono font-medium text-[#94a3b8] flex items-center gap-1.5">
           {label}
         </label>
-        <span className="text-[10px] font-mono text-amber-400 font-bold">
+        <span className="text-xs font-mono text-amber-400 font-bold">
           {localValue !== '' ? Number(localValue).toFixed(1) : '--'} {unit}
         </span>
       </div>
@@ -211,15 +211,15 @@ const CadDimensionField: React.FC<{
               }
             }}
             onBlur={() => commitImmediate(localValue)}
-            className="bg-[#181c26] border border-[#272d3b] text-[#f8fafc] font-mono text-xs rounded px-2 py-1 pr-6 w-full text-right outline-none focus:border-amber-400 focus:ring-1 focus:ring-amber-400/30 transition-all shadow-inner"
+            className="bg-[#181c26] border border-[#272d3b] text-[#f8fafc] font-mono text-xs rounded px-2 py-2 pr-6 w-full text-right outline-none focus:border-amber-400 focus:ring-1 focus:ring-amber-400/30 transition-all shadow-inner"
           />
-          <span className="absolute right-2 top-1/2 -translate-y-1/2 text-[10px] font-mono font-semibold text-[#64748b] select-none pointer-events-none">
+          <span className="absolute right-2 top-1/2 -translate-y-1/2 text-xs font-mono font-semibold text-[#64748b] select-none pointer-events-none">
             {unit}
           </span>
         </div>
       </div>
 
-      {tooltip && <p className="text-[9px] font-mono text-[#64748b] leading-tight">{tooltip}</p>}
+      {tooltip && <p className="text-xs font-mono text-[#64748b] leading-tight">{tooltip}</p>}
     </div>
   );
 });
@@ -234,11 +234,11 @@ const CadToggleChips: React.FC<{
 }> = React.memo(({ label, value, onChange, options, tooltip }) => (
   <div className="flex flex-col gap-1.5">
     <div className="flex justify-between items-center">
-      <label className="text-[11px] font-mono font-medium text-[#94a3b8] flex items-center gap-1.5">
+      <label className="text-sm font-mono font-medium text-[#94a3b8] flex items-center gap-1.5">
         {label}
       </label>
       {tooltip && (
-        <span className="text-[10px] font-mono text-[#64748b] cursor-help" title={tooltip}>
+        <span className="text-xs font-mono text-[#64748b] cursor-help" title={tooltip}>
           ⓘ
         </span>
       )}
@@ -251,7 +251,7 @@ const CadToggleChips: React.FC<{
             key={opt.value}
             type="button"
             onClick={() => onChange(opt.value)}
-            className={`px-3 py-1.5 rounded-md text-xs font-mono transition-all flex items-center gap-1.5 ${
+            className={`px-3 py-2.5 rounded-md text-xs font-mono transition-all flex items-center gap-1.5 ${
               isSelected
                 ? 'bg-amber-400/15 border border-amber-400/60 text-amber-300 font-semibold shadow-sm'
                 : 'bg-[#181c26] border border-[#272d3b] text-[#94a3b8] hover:border-[#384154] hover:text-[#f8fafc]'
@@ -276,17 +276,17 @@ const CadSelectInput: React.FC<{
 }> = React.memo(({ value, onChange, label, options, tooltip }) => (
   <div className="flex flex-col gap-1">
     <div className="flex justify-between items-center">
-      <label className="text-[11px] font-mono font-medium text-[#94a3b8] flex items-center gap-1.5">
+      <label className="text-sm font-mono font-medium text-[#94a3b8] flex items-center gap-1.5">
         {label}
       </label>
       {tooltip && (
-        <span className="text-[10px] font-mono text-[#64748b] cursor-help" title={tooltip}>
+        <span className="text-xs font-mono text-[#64748b] cursor-help" title={tooltip}>
           ⓘ
         </span>
       )}
     </div>
     <select
-      className="bg-[#161922] border border-[#272d3b] text-[#f8fafc] font-mono text-xs px-2.5 py-1.5 w-full outline-none focus:border-amber-400 focus:ring-1 focus:ring-amber-400/30 transition-all rounded-md shadow-inner"
+      className="bg-[#161922] border border-[#272d3b] text-[#f8fafc] font-mono text-xs px-2.5 py-2.5 w-full outline-none focus:border-amber-400 focus:ring-1 focus:ring-amber-400/30 transition-all rounded-md shadow-inner"
       value={value}
       onChange={(e) => onChange(e.target.value)}
     >
@@ -296,7 +296,7 @@ const CadSelectInput: React.FC<{
         </option>
       ))}
     </select>
-    {tooltip && <p className="text-[10px] font-mono text-[#64748b] leading-tight mt-0.5">{tooltip}</p>}
+    {tooltip && <p className="text-xs font-mono text-[#64748b] leading-tight mt-0.5">{tooltip}</p>}
   </div>
 ));
 
@@ -457,7 +457,7 @@ export const SpecificationsPanel: React.FC<SpecificationsPanelProps> = ({
               Scaffold Parameters & Layout
             </h2>
           </div>
-          <span className="text-[10px] font-mono text-[#7e8b9f] bg-[#181c27] border border-[#272d3b] px-2 py-0.5 rounded">
+          <span className="text-xs font-mono text-[#7e8b9f] bg-[#181c27] border border-[#272d3b] px-2 py-2 rounded">
             KWIKSTAGE STANDARDS
           </span>
         </div>
@@ -469,14 +469,14 @@ export const SpecificationsPanel: React.FC<SpecificationsPanelProps> = ({
         <div className="flex gap-1.5 overflow-x-auto hide-scrollbar bg-[#161922] p-1 rounded-lg border border-[#272d3b]">
           <button
             onClick={() => setActiveTab('decks')}
-            className={`px-3 py-1.5 text-xs font-mono font-medium tracking-wide rounded-md transition-all flex items-center gap-2 whitespace-nowrap ${
+            className={`px-3 py-2.5 text-xs font-mono font-medium tracking-wide rounded-md transition-all flex items-center gap-2 whitespace-nowrap ${
               activeTab === 'decks'
                 ? 'bg-[#222734] text-amber-400 border border-[#343b4d] shadow-sm font-semibold'
                 : 'text-[#94a3b8] hover:text-[#f8fafc] hover:bg-[#1d212c]'
             }`}
           >
             <span>Decks</span>
-            <span className={`text-[10px] px-1.5 py-0.2 rounded font-mono ${
+            <span className={`text-xs px-1.5 py-0.2 rounded font-mono ${
               activeTab === 'decks'
                 ? 'bg-amber-400/10 text-amber-400 border border-amber-400/30'
                 : 'bg-[#1b1f2a] text-[#7e8b9f]'
@@ -487,14 +487,14 @@ export const SpecificationsPanel: React.FC<SpecificationsPanelProps> = ({
 
           <button
             onClick={() => setActiveTab('ramps')}
-            className={`px-3 py-1.5 text-xs font-mono font-medium tracking-wide rounded-md transition-all flex items-center gap-2 whitespace-nowrap ${
+            className={`px-3 py-2.5 text-xs font-mono font-medium tracking-wide rounded-md transition-all flex items-center gap-2 whitespace-nowrap ${
               activeTab === 'ramps'
                 ? 'bg-[#222734] text-amber-400 border border-[#343b4d] shadow-sm font-semibold'
                 : 'text-[#94a3b8] hover:text-[#f8fafc] hover:bg-[#1d212c]'
             }`}
           >
             <span>Ramps</span>
-            <span className={`text-[10px] px-1.5 py-0.2 rounded font-mono ${
+            <span className={`text-xs px-1.5 py-0.2 rounded font-mono ${
               activeTab === 'ramps'
                 ? 'bg-amber-400/10 text-amber-400 border border-amber-400/30'
                 : 'bg-[#1b1f2a] text-[#7e8b9f]'
@@ -505,14 +505,14 @@ export const SpecificationsPanel: React.FC<SpecificationsPanelProps> = ({
 
           <button
             onClick={() => setActiveTab('handrails')}
-            className={`px-3 py-1.5 text-xs font-mono font-medium tracking-wide rounded-md transition-all flex items-center gap-2 whitespace-nowrap ${
+            className={`px-3 py-2.5 text-xs font-mono font-medium tracking-wide rounded-md transition-all flex items-center gap-2 whitespace-nowrap ${
               activeTab === 'handrails'
                 ? 'bg-[#222734] text-amber-400 border border-[#343b4d] shadow-sm font-semibold'
                 : 'text-[#94a3b8] hover:text-[#f8fafc] hover:bg-[#1d212c]'
             }`}
           >
             <span>Handrails</span>
-            <span className={`text-[10px] px-1.5 py-0.2 rounded font-mono ${
+            <span className={`text-xs px-1.5 py-0.2 rounded font-mono ${
               activeTab === 'handrails'
                 ? 'bg-amber-400/10 text-amber-400 border border-amber-400/30'
                 : 'bg-[#1b1f2a] text-[#7e8b9f]'
@@ -523,14 +523,14 @@ export const SpecificationsPanel: React.FC<SpecificationsPanelProps> = ({
 
           <button
             onClick={() => setActiveTab('landings')}
-            className={`px-3 py-1.5 text-xs font-mono font-medium tracking-wide rounded-md transition-all flex items-center gap-2 whitespace-nowrap ${
+            className={`px-3 py-2.5 text-xs font-mono font-medium tracking-wide rounded-md transition-all flex items-center gap-2 whitespace-nowrap ${
               activeTab === 'landings'
                 ? 'bg-[#222734] text-amber-400 border border-[#343b4d] shadow-sm font-semibold'
                 : 'text-[#94a3b8] hover:text-[#f8fafc] hover:bg-[#1d212c]'
             }`}
           >
             <span>Landings</span>
-            <span className={`text-[10px] px-1.5 py-0.2 rounded font-mono ${
+            <span className={`text-xs px-1.5 py-0.2 rounded font-mono ${
               activeTab === 'landings'
                 ? 'bg-amber-400/10 text-amber-400 border border-amber-400/30'
                 : 'bg-[#1b1f2a] text-[#7e8b9f]'
@@ -556,7 +556,7 @@ export const SpecificationsPanel: React.FC<SpecificationsPanelProps> = ({
                   <span className="w-1.5 h-1.5 rounded-full bg-amber-400"></span>
                   <h3 className="text-xs font-mono font-bold text-[#f8fafc] uppercase tracking-wider">
                     DECK {i + 1}{' '}
-                    <span className="text-[#64748b] text-[11px] ml-1 font-normal">
+                    <span className="text-[#64748b] text-sm ml-1 font-normal">
                       [{deck.id}]
                     </span>
                   </h3>
@@ -564,7 +564,7 @@ export const SpecificationsPanel: React.FC<SpecificationsPanelProps> = ({
                 {decks.length > 1 && (
                   <button
                     onClick={() => removeDeck(deck.id)}
-                    className="text-[#ef4444] hover:text-[#f87171] text-[10px] font-mono font-bold uppercase tracking-wider transition-colors px-2 py-1 rounded bg-[#ef4444]/10 border border-[#ef4444]/20 hover:border-[#ef4444]/40"
+                    className="text-[#ef4444] hover:text-[#f87171] text-xs font-mono font-bold uppercase tracking-wider transition-colors px-2 py-2 rounded bg-[#ef4444]/10 border border-[#ef4444]/20 hover:border-[#ef4444]/40"
                   >
                     Remove Deck
                   </button>
@@ -574,7 +574,7 @@ export const SpecificationsPanel: React.FC<SpecificationsPanelProps> = ({
               <div className="p-4 md:p-5 flex flex-col gap-5">
                 {/* 1. Deck Type & Parent Attachment */}
                 <div className="flex flex-col gap-3">
-                  <div className="flex items-center gap-2 pb-1.5 border-b border-[#232734] text-[11px] font-mono font-bold uppercase tracking-wider text-[#cbd5e1]">
+                  <div className="flex items-center gap-2 pb-1.5 border-b border-[#232734] text-sm font-mono font-bold uppercase tracking-wider text-[#cbd5e1]">
                     <span className="text-amber-400">§</span>
                     <span>Architecture & Structure Type</span>
                   </div>
@@ -660,7 +660,7 @@ export const SpecificationsPanel: React.FC<SpecificationsPanelProps> = ({
 
                 {/* 2. Dimensions & Positioning */}
                 <div className="flex flex-col gap-3">
-                  <div className="flex items-center gap-2 pb-1.5 border-b border-[#232734] text-[11px] font-mono font-bold uppercase tracking-wider text-[#cbd5e1]">
+                  <div className="flex items-center gap-2 pb-1.5 border-b border-[#232734] text-sm font-mono font-bold uppercase tracking-wider text-[#cbd5e1]">
                     <span className="text-amber-400">§</span>
                     <span>Dimensions & Bay Spacing</span>
                   </div>
@@ -727,14 +727,14 @@ export const SpecificationsPanel: React.FC<SpecificationsPanelProps> = ({
                       <div className="sm:col-span-2 bg-[#161a25] border border-[#272d3c] rounded-lg p-3 flex flex-col gap-2.5">
                         <div className="flex items-center justify-between">
                           <div className="flex flex-col">
-                            <span className="text-[11px] font-mono text-[#cbd5e1] font-semibold">Raking Construction Datum</span>
-                            <span className="text-[10px] text-[#7e8b9f]">Left Corner Datum (0, 0) • Rostrums hook on 1.2m sides with 2.4m hooks facing inwards</span>
+                            <span className="text-sm font-mono text-[#cbd5e1] font-semibold">Raking Construction Datum</span>
+                            <span className="text-xs text-[#7e8b9f]">Left Corner Datum (0, 0) • Rostrums hook on 1.2m sides with 2.4m hooks facing inwards</span>
                           </div>
-                          <span className="px-2.5 py-0.5 text-[10px] font-mono font-bold uppercase rounded bg-amber-400/10 border border-amber-400/40 text-amber-400">
+                          <span className="px-2.5 py-2 text-xs font-mono font-bold uppercase rounded bg-amber-400/10 border border-amber-400/40 text-amber-400">
                             LEFT CORNER ORIGIN
                           </span>
                         </div>
-                        <div className="grid grid-cols-3 gap-2 pt-2 border-t border-[#272d3c] text-[10px] font-mono">
+                        <div className="grid grid-cols-3 gap-2 pt-2 border-t border-[#272d3c] text-xs font-mono">
                           <div className="flex flex-col">
                             <span className="text-[#7e8b9f]">Total Depth:</span>
                             <span className="text-amber-400 font-bold">
@@ -754,7 +754,7 @@ export const SpecificationsPanel: React.FC<SpecificationsPanelProps> = ({
                             </span>
                           </div>
                         </div>
-                        <div className="pt-2 border-t border-[#272d3c] flex flex-col gap-1 text-[10px] font-mono text-[#94a3b8]">
+                        <div className="pt-2 border-t border-[#272d3c] flex flex-col gap-1 text-xs font-mono text-[#94a3b8]">
                           <div className="flex items-center justify-between">
                             <span>Bracing Pattern:</span>
                             <span className="text-amber-300 font-semibold">4 Ledger Bays / Braced Bay • Open Bay Alternating</span>
@@ -833,7 +833,7 @@ export const SpecificationsPanel: React.FC<SpecificationsPanelProps> = ({
 
                 {/* 3. Elevations & Ground Offsets */}
                 <div className="flex flex-col gap-3">
-                  <div className="flex items-center gap-2 pb-1.5 border-b border-[#232734] text-[11px] font-mono font-bold uppercase tracking-wider text-[#cbd5e1]">
+                  <div className="flex items-center gap-2 pb-1.5 border-b border-[#232734] text-sm font-mono font-bold uppercase tracking-wider text-[#cbd5e1]">
                     <span className="text-amber-400">§</span>
                     <span>Elevations & Ground Grade</span>
                   </div>
@@ -908,14 +908,14 @@ export const SpecificationsPanel: React.FC<SpecificationsPanelProps> = ({
                   <span className="w-1.5 h-1.5 rounded-full bg-amber-400"></span>
                   <h3 className="text-xs font-mono font-bold text-[#f8fafc] uppercase tracking-wider">
                     Ramps for Deck {i + 1}{' '}
-                    <span className="text-[#64748b] text-[11px] ml-1 font-normal">
+                    <span className="text-[#64748b] text-sm ml-1 font-normal">
                       [{deck.id}]
                     </span>
                   </h3>
                 </div>
                 <button
                   onClick={() => addRamp(deck.id)}
-                  className="px-3 py-1 text-amber-400 hover:text-stone-950 bg-[#1c202d] hover:bg-amber-400 border border-amber-400/30 text-[10px] font-mono font-bold uppercase tracking-wider transition-all rounded-md"
+                  className="px-3 py-2 text-amber-400 hover:text-stone-950 bg-[#1c202d] hover:bg-amber-400 border border-amber-400/30 text-xs font-mono font-bold uppercase tracking-wider transition-all rounded-md"
                 >
                   + Add Ramp
                 </button>
@@ -930,7 +930,7 @@ export const SpecificationsPanel: React.FC<SpecificationsPanelProps> = ({
                       className="bg-[#161922] border border-[#272d3b] rounded-lg p-4 relative flex flex-col gap-3"
                     >
                       <div className="flex justify-between items-center pb-2 border-b border-[#272d3b]">
-                        <span className="text-[10px] font-mono font-bold text-amber-400">
+                        <span className="text-xs font-mono font-bold text-amber-400">
                           RAMP ID: {ramp.id}
                         </span>
                         <button
@@ -1025,14 +1025,14 @@ export const SpecificationsPanel: React.FC<SpecificationsPanelProps> = ({
                   <span className="w-1.5 h-1.5 rounded-full bg-amber-400"></span>
                   <h3 className="text-xs font-mono font-bold text-[#f8fafc] uppercase tracking-wider">
                     Handrails for Deck {i + 1}{' '}
-                    <span className="text-[#64748b] text-[11px] ml-1 font-normal">
+                    <span className="text-[#64748b] text-sm ml-1 font-normal">
                       [{deck.id}]
                     </span>
                   </h3>
                 </div>
                 <button
                   onClick={() => addHandrail(deck.id)}
-                  className="px-3 py-1 text-amber-400 hover:text-stone-950 bg-[#1c202d] hover:bg-amber-400 border border-amber-400/30 text-[10px] font-mono font-bold uppercase tracking-wider transition-all rounded-md"
+                  className="px-3 py-2 text-amber-400 hover:text-stone-950 bg-[#1c202d] hover:bg-amber-400 border border-amber-400/30 text-xs font-mono font-bold uppercase tracking-wider transition-all rounded-md"
                 >
                   + Add Handrail
                 </button>
@@ -1047,7 +1047,7 @@ export const SpecificationsPanel: React.FC<SpecificationsPanelProps> = ({
                       className="bg-[#161922] border border-[#272d3b] rounded-lg p-4 relative flex flex-col gap-3"
                     >
                       <div className="flex justify-between items-center pb-2 border-b border-[#272d3b]">
-                        <span className="text-[10px] font-mono font-bold text-amber-400">
+                        <span className="text-xs font-mono font-bold text-amber-400">
                           RAILING ID: {handrail.id}
                         </span>
                         <button
@@ -1132,14 +1132,14 @@ export const SpecificationsPanel: React.FC<SpecificationsPanelProps> = ({
                   <span className="w-1.5 h-1.5 rounded-full bg-amber-400"></span>
                   <h3 className="text-xs font-mono font-bold text-[#f8fafc] uppercase tracking-wider">
                     Landings for Ramp {i + 1}{' '}
-                    <span className="text-[#64748b] text-[11px] ml-1 font-normal">
+                    <span className="text-[#64748b] text-sm ml-1 font-normal">
                       [{ramp.id}]
                     </span>
                   </h3>
                 </div>
                 <button
                   onClick={() => addLandingPad(ramp.id)}
-                  className="px-3 py-1 text-amber-400 hover:text-stone-950 bg-[#1c202d] hover:bg-amber-400 border border-amber-400/30 text-[10px] font-mono font-bold uppercase tracking-wider transition-all rounded-md"
+                  className="px-3 py-2 text-amber-400 hover:text-stone-950 bg-[#1c202d] hover:bg-amber-400 border border-amber-400/30 text-xs font-mono font-bold uppercase tracking-wider transition-all rounded-md"
                 >
                   + Add Landing Pad
                 </button>

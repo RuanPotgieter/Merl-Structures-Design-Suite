@@ -858,12 +858,12 @@ export const DeckVisualizer3D: React.FC<DeckVisualizer3DProps> = React.memo(({ d
     <div className="w-full h-full bg-[#e5e7eb] overflow-hidden relative touch-none">
       {/* Decluttered Minimalist CAD Camera View Toolbar with Small Icons */}
       <div className="absolute top-3 left-3 z-20 flex items-center gap-0.5 p-1 bg-slate-900/80 backdrop-blur-md rounded-md border border-slate-700/60 shadow-md">
-        <div className="flex items-center gap-1 px-1.5 py-0.5 border-r border-slate-700/60 text-slate-400">
+        <div className="flex items-center gap-1 px-1.5 py-2 border-r border-slate-700/60 text-slate-400">
           <Compass size={10} className="text-amber-400" />
         </div>
         <button 
           onClick={() => setView('iso')} 
-          className="flex items-center gap-1 px-1.5 py-0.5 rounded text-[10px] font-mono font-medium text-slate-200 hover:text-amber-400 hover:bg-amber-400/15 transition-all"
+          className="flex items-center gap-1 px-1.5 py-2 rounded text-xs font-mono font-medium text-slate-200 hover:text-amber-400 hover:bg-amber-400/15 transition-all"
           title="Isometric CAD Perspective"
         >
           <Box size={10} className="text-amber-400" />
@@ -871,7 +871,7 @@ export const DeckVisualizer3D: React.FC<DeckVisualizer3DProps> = React.memo(({ d
         </button>
         <button 
           onClick={() => setView('top')} 
-          className="flex items-center gap-1 px-1.5 py-0.5 rounded text-[10px] font-mono text-slate-300 hover:text-amber-400 hover:bg-amber-400/15 transition-all"
+          className="flex items-center gap-1 px-1.5 py-2 rounded text-xs font-mono text-slate-300 hover:text-amber-400 hover:bg-amber-400/15 transition-all"
           title="Top Plan View"
         >
           <Square size={9} />
@@ -879,7 +879,7 @@ export const DeckVisualizer3D: React.FC<DeckVisualizer3DProps> = React.memo(({ d
         </button>
         <button 
           onClick={() => setView('front')} 
-          className="flex items-center gap-1 px-1.5 py-0.5 rounded text-[10px] font-mono text-slate-300 hover:text-amber-400 hover:bg-amber-400/15 transition-all"
+          className="flex items-center gap-1 px-1.5 py-2 rounded text-xs font-mono text-slate-300 hover:text-amber-400 hover:bg-amber-400/15 transition-all"
           title="Front Elevation"
         >
           <Eye size={9} />
@@ -887,7 +887,7 @@ export const DeckVisualizer3D: React.FC<DeckVisualizer3DProps> = React.memo(({ d
         </button>
         <button 
           onClick={() => setView('right')} 
-          className="flex items-center gap-1 px-1.5 py-0.5 rounded text-[10px] font-mono text-slate-300 hover:text-amber-400 hover:bg-amber-400/15 transition-all"
+          className="flex items-center gap-1 px-1.5 py-2 rounded text-xs font-mono text-slate-300 hover:text-amber-400 hover:bg-amber-400/15 transition-all"
           title="Side View (Right)"
         >
           <Columns size={9} />
@@ -895,14 +895,14 @@ export const DeckVisualizer3D: React.FC<DeckVisualizer3DProps> = React.memo(({ d
         </button>
         <button 
           onClick={() => setView('left')} 
-          className="px-1.5 py-0.5 rounded text-[10px] font-mono text-slate-400 hover:text-amber-400 hover:bg-amber-400/15 transition-all"
+          className="px-1.5 py-2 rounded text-xs font-mono text-slate-400 hover:text-amber-400 hover:bg-amber-400/15 transition-all"
           title="Left Elevation"
         >
           LFT
         </button>
         <button 
           onClick={() => setView('bottom')} 
-          className="px-1.5 py-0.5 rounded text-[10px] font-mono text-slate-400 hover:text-amber-400 hover:bg-amber-400/15 transition-all"
+          className="px-1.5 py-2 rounded text-xs font-mono text-slate-400 hover:text-amber-400 hover:bg-amber-400/15 transition-all"
           title="Bottom Underneath View"
         >
           BTM
