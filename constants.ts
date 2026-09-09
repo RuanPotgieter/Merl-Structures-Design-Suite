@@ -10,9 +10,9 @@ export const DECK_THICKNESS = 0.05; // 50mm
 export const SOLE_BOARD_THICKNESS = 0.038; // 38mm
 
 export const STANDARD_DESCRIPTIONS: Record<number, string> = {
-  3000: "3000mm standard (6 x v pressing clusters starting 250mm from the bottom spaced 500mm apart)",
-  2500: "2500mm standard (5 x v pressing clusters starting 250mm from the bottom spaced 500mm apart)",
-  2000: "2000mm standard (4 x v pressing clusters starting 250mm from the bottom spaced 500mm apart)",
+  3000: "3000mm standard (double cluster for double ledger line, 6 x v pressing clusters)",
+  2500: "2500mm standard (double cluster for double ledger line, 5 x v pressing clusters)",
+  2000: "2000mm standard (double cluster for double ledger line, 4 x v pressing clusters)",
   1750: "1750mm standard (1 x v pressing cluster 250mm from the bottom)",
   1500: "1500mm standard (1 x v pressing cluster 250mm from the bottom)",
   1250: "1250mm standard (1 x v pressing cluster 250mm from the bottom)",

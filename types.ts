@@ -9,6 +9,8 @@ export interface Rostrum {
   gridRow: number;
   gridCol: number;
   center: Coordinate;
+  topLeft: Coordinate;
+  bottomRight: Coordinate;
   width: number;
   depth: number;
   rotationY: number;
@@ -18,6 +20,8 @@ export interface Rostrum {
   startElevation?: number;
   endElevation?: number;
   rampMaxRows?: number;
+  isStepBox?: boolean;
+  isRiserFascia?: boolean;
 }
 
 export interface LandingPadConfig {
@@ -35,6 +39,7 @@ export interface RampConfig {
   width: number | '';
   length: number | '';
   landingPads?: LandingPadConfig[];
+  handrailType?: 'both' | 'left' | 'right' | 'none';
 }
 
 export interface LegAssembly {
@@ -65,6 +70,7 @@ export interface HandrailConfig {
 
 export interface Project {
   id: string;
+  driveFileId?: string;
   siteName: string;
   clientName: string;
   decks: DeckConfig[];
@@ -78,6 +84,10 @@ export interface DeckConfig {
   id: string;
   type?: 'standard' | 'raking';
   tiers?: number | '';
+  stepHeight?: number | '';
+  stepDepth?: number | '';
+  centerAisle?: boolean;
+  centerAisleWidth?: number | '';
   handrailType?: 'standard' | 'none';
   width: number | '';
   depth: number | '';
@@ -130,6 +140,14 @@ export interface Handrail {
   startPos: { x: number, y: number, z: number };
   endPos: { x: number, y: number, z: number };
   length: number;
+  isExplicit?: boolean;
+  isTermination?: boolean;
+}
+
+export interface SwivelConnector {
+  id: string;
+  position: { x: number; y: number; z: number };
+  color?: string;
 }
 
 export interface DeckCalculationResult {
@@ -147,6 +165,7 @@ export interface DeckCalculationResult {
   braces: Brace[];
   uprights: Upright[];
   handrails: Handrail[];
+  swivelConnectors?: SwivelConnector[];
   totalArea: number;
   dimensions: {
     width: number;

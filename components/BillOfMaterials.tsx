@@ -45,25 +45,25 @@ export const BillOfMaterials: React.FC<BillOfMaterialsProps> = ({ data }) => {
 
   // Add Ledgers to Inventory
   if (data.ledgerCounts) {
-    if (data.ledgerCounts.purple > 0) {
+    if (data.ledgerCounts.blueBlack > 0) {
       inventory['Blue-Black Ledger'] = {
-        count: data.ledgerCounts.purple,
+        count: data.ledgerCounts.blueBlack,
         category: 'Ledger',
         id: 'LDG-PUR',
         color: '#a855f7' // Purple
       };
     }
-    if (data.ledgerCounts.blue > 0) {
+    if (data.ledgerCounts.blackBlack > 0) {
       inventory['Black-Black Ledger'] = {
-        count: data.ledgerCounts.blue,
+        count: data.ledgerCounts.blackBlack,
         category: 'Ledger',
         id: 'LDG-BLU',
         color: '#3b82f6' // Blue
       };
     }
-    if (data.ledgerCounts.green > 0) {
+    if (data.ledgerCounts.blueBlue > 0) {
       inventory['Blue-Blue Ledger'] = {
-        count: data.ledgerCounts.green,
+        count: data.ledgerCounts.blueBlue,
         category: 'Ledger',
         id: 'LDG-GRN',
         color: '#22c55e' // Green
@@ -77,7 +77,17 @@ export const BillOfMaterials: React.FC<BillOfMaterialsProps> = ({ data }) => {
       count: data.braces.length,
       category: 'Bracing',
       id: 'BRC-DIAG',
-      color: '#ffe600' // Yellow
+      color: '#dc2626' // Red
+    };
+  }
+
+  // Add Swivel Couplers (Light Pink) to Inventory
+  if (data.swivelConnectors && data.swivelConnectors.length > 0) {
+    inventory['Swivel Coupler (Light Pink)'] = {
+      count: data.swivelConnectors.length,
+      category: 'Bracing',
+      id: 'COUPLER-SWIVEL-PNK',
+      color: '#f472b6' // Light Pink
     };
   }
 
@@ -105,9 +115,17 @@ export const BillOfMaterials: React.FC<BillOfMaterialsProps> = ({ data }) => {
   // Add Handrails to Inventory
   if (data.handrails) {
     data.handrails.forEach(hr => {
-      // 1 set of handrail = 2 tubes. Since we emit 1 Handrail object per set, we just count them.
-      // Wait, the prompt says "1 set of handrail consist of 2 square tubes of the same length."
-      // Let's just list the handrail set.
+      if (hr.isTermination) {
+        const name = `Handrail D-Loop Safety Return`;
+        inventory[name] = inventory[name] || {
+          count: 0,
+          category: 'Handrail',
+          id: `HR-RET-LOOP`,
+          color: '#eab308'
+        };
+        inventory[name].count++;
+        return;
+      }
       const lenStr = hr.length >= 1.0 ? `${hr.length.toFixed(1)}m` : `${(hr.length * 1000).toFixed(0)}mm`;
       const name = `${lenStr} Handrail Set`;
       inventory[name] = inventory[name] || {
@@ -129,28 +147,34 @@ export const BillOfMaterials: React.FC<BillOfMaterialsProps> = ({ data }) => {
   }));
 
   return (
-    <div className="w-full text-[13px] font-sans bg-white text-black overflow-x-auto border border-[#d4d4d4] shadow-sm">
+    <div className="w-full text-xs font-mono bg-[#111319] text-[#f1f5f9] overflow-x-auto border-t border-[#232734]">
        <table className="w-full border-collapse">
           <thead>
-             <tr className="bg-[#f3f2f1] border-b border-[#d4d4d4] text-[#323130] text-left">
-                <th className="py-1 px-2 border-r border-[#d4d4d4] font-normal select-none w-8 text-center bg-[#e1dfdd] border-b-[#d4d4d4]"></th>
-                <th className="py-1 px-2 border-r border-[#d4d4d4] font-normal select-none w-24 hover:bg-[#e1dfdd] cursor-pointer">Part ID</th>
-                <th className="py-1 px-2 border-r border-[#d4d4d4] font-normal select-none w-32 hover:bg-[#e1dfdd] cursor-pointer">Category</th>
-                <th className="py-1 px-2 border-r border-[#d4d4d4] font-normal select-none hover:bg-[#e1dfdd] cursor-pointer">Description</th>
-                <th className="py-1 px-2 font-normal select-none text-right w-20 hover:bg-[#e1dfdd] cursor-pointer">Qty</th>
+             <tr className="bg-[#161a25] border-b border-[#232734] text-[#8e9cb2] text-left">
+                <th className="py-2.5 px-3 border-r border-[#232734] font-semibold select-none w-10 text-center bg-[#0f1118] text-[#64748b]">#</th>
+                <th className="py-2.5 px-3 border-r border-[#232734] font-semibold select-none w-28 text-amber-400">Part ID</th>
+                <th className="py-2.5 px-3 border-r border-[#232734] font-semibold select-none w-36">Category</th>
+                <th className="py-2.5 px-3 border-r border-[#232734] font-semibold select-none">Component Description</th>
+                <th className="py-2.5 px-3 font-semibold select-none text-right w-24 text-[#cbd5e1]">Quantity</th>
              </tr>
           </thead>
           <tbody>
              {rows.map((row, i) => (
-                <tr key={i} className={`border-b border-[#e1dfdd] hover:bg-[#f3f2f1] ${i % 2 === 0 ? 'bg-white' : 'bg-white'}`}>
-                   <td className="py-1 px-2 border-r border-[#d4d4d4] text-[#605e5c] text-center bg-[#f3f2f1]">{i + 1}</td>
-                   <td className="py-1 px-2 border-r border-[#e1dfdd] font-mono text-[#0078d4]">{row.id}</td>
-                   <td className="py-1 px-2 border-r border-[#e1dfdd] text-[#323130]">{row.category}</td>
-                   <td className="py-1 px-2 border-r border-[#e1dfdd] flex items-center gap-2 text-[#323130]">
-                      {row.color && <div className="w-2.5 h-2.5 rounded-sm border border-[#c8c6c4]" style={{ backgroundColor: row.color }}></div>}
-                      {row.desc}
+                <tr key={i} className={`border-b border-[#232734] hover:bg-[#1b202d] transition-colors ${i % 2 === 0 ? 'bg-[#131620]' : 'bg-[#10131b]'}`}>
+                   <td className="py-2 px-3 border-r border-[#232734] text-[#64748b] text-center bg-[#0f1118]">{i + 1}</td>
+                   <td className="py-2 px-3 border-r border-[#232734] font-mono text-amber-400 font-semibold">{row.id}</td>
+                   <td className="py-2 px-3 border-r border-[#232734] text-[#8e9cb2]">
+                     <span className="px-2 py-0.5 rounded bg-[#181c28] border border-[#272d3c] text-[10px]">
+                       {row.category}
+                     </span>
                    </td>
-                   <td className="py-1 px-2 text-right text-[#323130]">{row.qty}</td>
+                   <td className="py-2 px-3 border-r border-[#232734] text-[#f8fafc]">
+                     <div className="flex items-center gap-2.5">
+                        {row.color && <div className="w-2.5 h-2.5 rounded-sm border border-[#2e3547] shadow-sm shrink-0" style={{ backgroundColor: row.color }}></div>}
+                        <span>{row.desc}</span>
+                     </div>
+                   </td>
+                   <td className="py-2 px-3 text-right font-bold text-[#f8fafc]">{row.qty}</td>
                 </tr>
              ))}
           </tbody>

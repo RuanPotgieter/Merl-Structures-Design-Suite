@@ -1,0 +1,7 @@
+<?xml version='1.0' encoding='utf-8'?>
+<resources>
+    <string name="app_name">MerlMagic</string>
+    <string name="title_activity_main">MerlMagic</string>
+    <string name="package_name">com.merlmagic.app</string>
+    <string name="custom_url_scheme">com.merlmagic.app</string>
+</resources>
