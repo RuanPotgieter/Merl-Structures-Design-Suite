@@ -11,7 +11,7 @@ declare global {
 }
 import { OrbitControls, Grid, ContactShadows, GizmoHelper, GizmoViewport, Edges } from '@react-three/drei';
 import { Box, Eye, Square, Columns, RotateCcw, Compass, ArrowUpFromLine, ArrowDownToLine, Maximize2 } from 'lucide-react';
-import { DeckCalculationResult, Rostrum, Foot, TerrainConfig, Ledger } from '../types';
+import { DeckCalculationResult, Rostrum, Foot, TerrainConfig, Ledger, RampPlate } from '../types';
 import { 
   COMPONENT_COLORS, 
   DECK_THICKNESS, 
@@ -106,6 +106,12 @@ const MAT_SOLE_BOARD = new THREE.MeshStandardMaterial({
   color: "#b45309",
   roughness: 0.85,
   metalness: 0.08,
+});
+
+const MAT_RAMP_PLATE = new THREE.MeshStandardMaterial({
+  color: "#333333", // Dark grey/black for the 18mm board
+  roughness: 0.9,
+  metalness: 0.1,
 });
 
 const MAT_LEDGER_BLUE = new THREE.MeshPhysicalMaterial({ color: "#2563eb", roughness: 0.22, metalness: 0.78, clearcoat: 0.2 });
@@ -254,7 +260,7 @@ const OriginMarker: React.FC<{ terrain: TerrainConfig; dimensions: any }> = () =
   );
 };
 
-const TerrainMesh: React.FC<{ terrain: TerrainConfig, dimensions: any }> = ({ terrain, dimensions }) => {
+const TerrainMesh: React.FC<{ terrain: TerrainConfig, dimensions: any, rostrums: any[] }> = ({ terrain, dimensions, rostrums }) => {
   const segments = 48;
   
   const geometry = useMemo(() => {
@@ -272,7 +278,8 @@ const TerrainMesh: React.FC<{ terrain: TerrainConfig, dimensions: any }> = ({ te
     for (let i = 0; i < pos.count; i++) {
       const x = pos.getX(i);
       const worldZ = -pos.getY(i);
-      const groundY = getGroundYAt(x, worldZ, terrain, dimensions.width, dimensions.depth);
+      let groundY = getGroundYAt(x, worldZ, terrain, dimensions.width, dimensions.depth);
+      
       pos.setZ(i, groundY);
     }
     geo.computeVertexNormals();
@@ -813,6 +820,32 @@ export interface DeckVisualizer3DProps {
   active?: boolean;
 }
 
+export const RampPlateGroup: React.FC<{ rampPlates: RampPlate[] }> = ({ rampPlates }) => {
+  const meshRef = useRef<THREE.InstancedMesh>(null);
+
+  useLayoutEffect(() => {
+    if (meshRef.current && rampPlates.length > 0) {
+      rampPlates.forEach((p, i) => {
+        if (i >= meshRef.current.count) return;
+        _TEMP_QUAT.setFromEuler(new THREE.Euler(0, -p.rotation, 0));
+        _TEMP_MATRIX.compose(
+          new THREE.Vector3(p.position.x, p.position.z + 0.009, p.position.y), // y is depth (Z in 3D), z is elev (Y in 3D). Elevates by half thickness (9mm).
+          _TEMP_QUAT,
+          _TEMP_VECTOR.set(p.width, 0.018, p.depth) // 18mm thickness
+        );
+        meshRef.current.setMatrixAt(i, _TEMP_MATRIX);
+      });
+      meshRef.current.instanceMatrix.needsUpdate = true;
+    }
+  }, [rampPlates]);
+
+  if (!rampPlates || rampPlates.length === 0) return null;
+
+  return (
+    <instancedMesh ref={meshRef} args={[BOX_GEO, MAT_RAMP_PLATE, rampPlates.length]} castShadow receiveShadow />
+  );
+};
+
 export const DeckVisualizer3D: React.FC<DeckVisualizer3DProps> = React.memo(({ data, layers, active = true }) => {
   const BG_COLOR = "#e5e7eb"; // Clean architectural light grey viewport background
   const controlsRef = useRef<any>(null);
@@ -976,7 +1009,7 @@ export const DeckVisualizer3D: React.FC<DeckVisualizer3DProps> = React.memo(({ d
         <group>
           <OriginMarker terrain={data.terrain} dimensions={data.dimensions} />
           
-          {layers.terrain && <TerrainMesh terrain={data.terrain} dimensions={data.dimensions} />}
+          {layers.terrain && <TerrainMesh terrain={data.terrain} dimensions={data.dimensions} rostrums={data.rostrums} />}
           
           {layers.structure && <InfrastructureGroup feet={data.feet} ledgers={data.ledgers} braces={data.braces} swivelConnectors={data.swivelConnectors} layers={layers} />}
           

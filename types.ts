@@ -144,6 +144,14 @@ export interface Handrail {
   isTermination?: boolean;
 }
 
+export interface RampPlate {
+  id: string;
+  position: { x: number; y: number; z: number };
+  width: number;
+  depth: number;
+  rotation: number;
+}
+
 export interface SwivelConnector {
   id: string;
   position: { x: number; y: number; z: number };
@@ -166,6 +174,7 @@ export interface DeckCalculationResult {
   uprights: Upright[];
   handrails: Handrail[];
   swivelConnectors?: SwivelConnector[];
+  rampPlates?: RampPlate[];
   totalArea: number;
   dimensions: {
     width: number;

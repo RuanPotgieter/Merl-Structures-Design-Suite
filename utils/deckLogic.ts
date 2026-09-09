@@ -232,6 +232,7 @@ const calculateRakingDeck = (
   const rostrums: import('../types').Rostrum[] = [];
   const feetMap = new Map<string, import('../types').Foot>();
   const errors: string[] = [];
+  const rampPlates: import('../types').RampPlate[] = [];
 
   // Track foot elevations (upright standards)
   const registerFoot = (x: number, z: number, elev: number) => {
@@ -426,20 +427,7 @@ const calculateRakingDeck = (
         if (!processedConnections.has(connKey)) {
           processedConnections.add(connKey);
           
-          const topElev = Math.min(f.targetElevation, f2.targetElevation) - DECK_THICKNESS;
-          const footH1 = f.targetElevation - f.groundHeight - DECK_THICKNESS - SOLE_BOARD_THICKNESS;
-          const footH2 = f2.targetElevation - f2.groundHeight - DECK_THICKNESS - SOLE_BOARD_THICKNESS;
-          const minFootH = Math.min(footH1, footH2);
-
-          const elevations: number[] = [topElev];
-          if (minFootH > 1.75) {
-            let lowerElev = topElev - 1.0;
-            const minGround = Math.max(f.groundHeight, f2.groundHeight) + 0.15;
-            while (lowerElev >= minGround) {
-              elevations.push(lowerElev);
-              lowerElev -= 1.0;
-            }
-          }
+          const elevations = getLedgerElevations(f, f2);
 
           const ledgerLen = dx;
           elevations.forEach((elev, idx) => {
@@ -462,20 +450,7 @@ const calculateRakingDeck = (
         if (!processedConnections.has(connKey)) {
           processedConnections.add(connKey);
           
-          const topElev = Math.min(f.targetElevation, f2.targetElevation) - DECK_THICKNESS;
-          const footH1 = f.targetElevation - f.groundHeight - DECK_THICKNESS - SOLE_BOARD_THICKNESS;
-          const footH2 = f2.targetElevation - f2.groundHeight - DECK_THICKNESS - SOLE_BOARD_THICKNESS;
-          const minFootH = Math.min(footH1, footH2);
-
-          const elevations: number[] = [topElev];
-          if (minFootH > 1.75) {
-            let lowerElev = topElev - 1.0;
-            const minGround = Math.max(f.groundHeight, f2.groundHeight) + 0.15;
-            while (lowerElev >= minGround) {
-              elevations.push(lowerElev);
-              lowerElev -= 1.0;
-            }
-          }
+          const elevations = getLedgerElevations(f, f2);
           
           elevations.forEach((elev, idx) => {
             ledgerCounts.blueBlack++;
@@ -673,22 +648,20 @@ const calculateRakingDeck = (
         }
       } else {
         // Deck > 3m: Brace cant stretch full height. Second layer 1m above first.
-        const firstZLow = zBaseBot;
-        const firstZHigh = zBaseBot + 2.0;
-
-        bracesArray.push({
-          id: prefix + "_L1",
-          startPos: { x: xA, y: yA, z: lowAtA ? firstZLow : firstZHigh },
-          endPos: { x: xB, y: yB, z: lowAtA ? firstZHigh : firstZLow },
-          color: '#dc2626'
-        });
-
-        bracesArray.push({
-          id: prefix + "_L2",
-          startPos: { x: xA, y: yA, z: lowAtA ? firstZLow + 1.0 : firstZHigh + 1.0 },
-          endPos: { x: xB, y: yB, z: lowAtA ? firstZHigh + 1.0 : firstZLow + 1.0 },
-          color: '#dc2626'
-        });
+        let currentZLow = zBaseBot;
+        let currentZHigh = zBaseBot + 2.0;
+        let layerIdx = 1;
+        while (currentZHigh <= zBaseTop + 0.5) {
+           bracesArray.push({
+             id: prefix + "_L" + layerIdx,
+             startPos: { x: xA, y: yA, z: lowAtA ? currentZLow : currentZHigh },
+             endPos: { x: xB, y: yB, z: lowAtA ? currentZHigh : currentZLow },
+             color: '#dc2626'
+           });
+           currentZLow += 1.0;
+           currentZHigh += 1.0;
+           layerIdx++;
+        }
       }
     };
 
@@ -1464,9 +1437,77 @@ const calculateSingleDeck = (
   const feet = Array.from(feetMap.values());
   const errors: string[] = [];
 
+  const rampLeadingEdges = rampDataForBracing.map(rd => {
+    if (rd.rc.side === 'bottom') return { axis: 'y', val: rd.startY - rd.exactRampLength, rd };
+    if (rd.rc.side === 'top') return { axis: 'y', val: rd.startY + rd.exactRampLength, rd };
+    if (rd.rc.side === 'left') return { axis: 'x', val: rd.startX - rd.exactRampLength, rd };
+    if (rd.rc.side === 'right') return { axis: 'x', val: rd.startX + rd.exactRampLength, rd };
+    return null;
+  }).filter(Boolean);
+
+  const rampPlates: import('../types').RampPlate[] = [];
+  
+  rampDataForBracing.forEach(rd => {
+    let currentPos = 0;
+    while (currentPos < rd.exactRampWidth - 0.05) {
+      let pWidth = 1.2;
+      if (rd.exactRampWidth - currentPos >= 2.4 - 0.05) {
+         pWidth = 2.4;
+      } else {
+         pWidth = 1.2;
+      }
+      
+      let px = 0, py = 0, rot = 0;
+      let depth = 0.6;
+      
+      if (rd.rc.side === 'bottom') {
+         py = rd.startY - rd.exactRampLength - depth / 2;
+         px = rd.startX + rd.exactRampWidth - currentPos - pWidth / 2;
+         rot = 0;
+      } else if (rd.rc.side === 'top') {
+         py = rd.startY + rd.exactRampLength + depth / 2;
+         px = rd.startX + rd.exactRampWidth - currentPos - pWidth / 2;
+         rot = 0;
+      } else if (rd.rc.side === 'left') {
+         px = rd.startX - rd.exactRampLength - depth / 2;
+         py = rd.startY + rd.exactRampWidth - currentPos - pWidth / 2;
+         rot = Math.PI / 2;
+      } else if (rd.rc.side === 'right') {
+         px = rd.startX + rd.exactRampLength + depth / 2;
+         py = rd.startY + rd.exactRampWidth - currentPos - pWidth / 2;
+         rot = Math.PI / 2;
+      }
+      
+      rampPlates.push({
+        id: `RAMP_PLATE_${rd.rc.id}_${currentPos}`,
+        position: { x: px, y: py, z: rd.farEndElev },
+        width: pWidth,
+        depth: depth,
+        rotation: rot
+      });
+      
+      currentPos += pWidth;
+    }
+  });
+
   feet.forEach(f => {
     f.groundHeight = getGroundYAt(f.position.x, f.position.y, terrain, exactWidth, exactDepth);
     const reqH = f.targetElevation - f.groundHeight - DECK_THICKNESS - SOLE_BOARD_THICKNESS;
+
+    let isRampLeadingEdge = false;
+    for (const edge of rampLeadingEdges) {
+       if (edge.axis === 'x' && Math.abs(f.position.x - edge.val) < 0.05 && f.position.y >= edge.rd.startY - 0.05 && f.position.y <= edge.rd.startY + edge.rd.exactRampWidth + 0.05) {
+           isRampLeadingEdge = true;
+       }
+       if (edge.axis === 'y' && Math.abs(f.position.y - edge.val) < 0.05 && f.position.x >= edge.rd.startX - 0.05 && f.position.x <= edge.rd.startX + edge.rd.exactRampWidth + 0.05) {
+           isRampLeadingEdge = true;
+       }
+    }
+
+    if (isRampLeadingEdge) {
+       return;
+    }
+
     
     if (reqH < 0.15) {
       f.error = "UNDER_MIN_HEIGHT";
@@ -1597,7 +1638,7 @@ const calculateSingleDeck = (
           const cellAboveBraced = isCellBraced(x, y);
           const cellBelowBraced = isCellBraced(x, y - 1.2);
           
-          if (cellAboveBraced || cellBelowBraced) {
+          if (true) {
             const isHalf = isHalfRowAt(y);
             const isFirstColumn = Math.abs(x) < 0.05;
             
@@ -1650,7 +1691,7 @@ const calculateSingleDeck = (
           const cellRightBraced = isCellBraced(x, y);
           const cellLeftBraced = isCellBraced(x - 1.2, y);
           
-          if (cellRightBraced || cellLeftBraced) {
+          if (true) {
             const isHalf = isHalfRowAt(y);
             const isFirstColumn = Math.abs(x) < 0.05;
             
@@ -1763,22 +1804,20 @@ const calculateSingleDeck = (
         }
       } else {
         // Deck > 3m: Brace cant stretch full height. Second layer 1m above first.
-        const firstZLow = zBaseBot;
-        const firstZHigh = zBaseBot + 2.0;
-
-        bracesArray.push({
-          id: prefix + "_L1",
-          startPos: { x: xA, y: yA, z: lowAtA ? firstZLow : firstZHigh },
-          endPos: { x: xB, y: yB, z: lowAtA ? firstZHigh : firstZLow },
-          color: '#dc2626'
-        });
-
-        bracesArray.push({
-          id: prefix + "_L2",
-          startPos: { x: xA, y: yA, z: lowAtA ? firstZLow + 1.0 : firstZHigh + 1.0 },
-          endPos: { x: xB, y: yB, z: lowAtA ? firstZHigh + 1.0 : firstZLow + 1.0 },
-          color: '#dc2626'
-        });
+        let currentZLow = zBaseBot;
+        let currentZHigh = zBaseBot + 2.0;
+        let layerIdx = 1;
+        while (currentZHigh <= zBaseTop + 0.5) {
+           bracesArray.push({
+             id: prefix + "_L" + layerIdx,
+             startPos: { x: xA, y: yA, z: lowAtA ? currentZLow : currentZHigh },
+             endPos: { x: xB, y: yB, z: lowAtA ? currentZHigh : currentZLow },
+             color: '#dc2626'
+           });
+           currentZLow += 1.0;
+           currentZHigh += 1.0;
+           layerIdx++;
+        }
       }
     };
 
@@ -2311,6 +2350,7 @@ export const calculateDecks = (
     uprights: [],
     handrails: [],
     swivelConnectors: [],
+    rampPlates: [],
     totalArea: 0,
     dimensions: { width: 0, depth: 0 },
     terrain: decks[0]?.terrain || { deckHeight: 0, groundOffsets: { origin: 0, widthEnd: 0, depthEnd: 0, diagonal: 0 } },
