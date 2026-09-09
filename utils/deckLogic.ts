@@ -410,9 +410,22 @@ const calculateRakingDeck = (
         if (!processedConnections.has(connKey)) {
           processedConnections.add(connKey);
           
-          const elevations = getLedgerElevations(f, f2);
+          const topElev = Math.min(f.targetElevation, f2.targetElevation) - DECK_THICKNESS;
+          const footH1 = f.targetElevation - f.groundHeight - DECK_THICKNESS - SOLE_BOARD_THICKNESS;
+          const footH2 = f2.targetElevation - f2.groundHeight - DECK_THICKNESS - SOLE_BOARD_THICKNESS;
+          const minFootH = Math.min(footH1, footH2);
+
+          const elevations: number[] = [topElev];
+          if (minFootH > 1.75) {
+            let lowerElev = topElev - 1.0;
+            const minGround = Math.max(f.groundHeight, f2.groundHeight) + 0.15;
+            while (lowerElev >= minGround) {
+              elevations.push(lowerElev);
+              lowerElev -= 1.0;
+            }
+          }
+
           const ledgerLen = dx;
-          
           elevations.forEach((elev, idx) => {
             ledgerCounts.blueBlue++;
             ledgers.push({
@@ -433,7 +446,20 @@ const calculateRakingDeck = (
         if (!processedConnections.has(connKey)) {
           processedConnections.add(connKey);
           
-          const elevations = getLedgerElevations(f, f2);
+          const topElev = Math.min(f.targetElevation, f2.targetElevation) - DECK_THICKNESS;
+          const footH1 = f.targetElevation - f.groundHeight - DECK_THICKNESS - SOLE_BOARD_THICKNESS;
+          const footH2 = f2.targetElevation - f2.groundHeight - DECK_THICKNESS - SOLE_BOARD_THICKNESS;
+          const minFootH = Math.min(footH1, footH2);
+
+          const elevations: number[] = [topElev];
+          if (minFootH > 1.75) {
+            let lowerElev = topElev - 1.0;
+            const minGround = Math.max(f.groundHeight, f2.groundHeight) + 0.15;
+            while (lowerElev >= minGround) {
+              elevations.push(lowerElev);
+              lowerElev -= 1.0;
+            }
+          }
           
           elevations.forEach((elev, idx) => {
             ledgerCounts.blueBlack++;
@@ -598,6 +624,56 @@ const calculateRakingDeck = (
     // Order eligible depth rows from highest level (back row / outer corner foot to the right) to lowest level (front)
     const rowsFromHigh = [...eligibleYRows].sort((a, b) => b.y - a.y);
 
+    // Helper to add layered parallel braces if height > 3.0m
+    const addParallelBraces = (
+      bracesArray: any[],
+      prefix: string,
+      xA: number, yA: number, botA: number, topA: number,
+      xB: number, yB: number, botB: number, topB: number,
+      lowAtA: boolean,
+      isHighDeck: boolean
+    ) => {
+      const hA = topA - botA;
+      const hB = topB - botB;
+      const maxH = Math.max(hA, hB);
+
+      if (!isHighDeck || maxH <= 2.2) {
+        bracesArray.push({
+          id: prefix,
+          startPos: { x: xA, y: yA, z: lowAtA ? botA : topA },
+          endPos: { x: xB, y: yB, z: lowAtA ? topB : botB },
+          color: '#dc2626'
+        });
+      } else {
+        const maxBraceSpan = 2.0;
+        let currentOffset = 0;
+        let layer = 0;
+
+        while (currentOffset < maxH - 0.1) {
+          let span = Math.min(maxBraceSpan, maxH - currentOffset);
+          
+          let zStartA = botA + currentOffset;
+          let zStartB = botB + currentOffset;
+          
+          let zEndA = zStartA + span;
+          let zEndB = zStartB + span;
+
+          if (zEndA > topA) zEndA = topA;
+          if (zEndB > topB) zEndB = topB;
+
+          bracesArray.push({
+            id: `${prefix}_L${layer}`,
+            startPos: { x: xA, y: yA, z: lowAtA ? zStartA : zEndA },
+            endPos: { x: xB, y: yB, z: lowAtA ? zEndB : zStartB },
+            color: '#dc2626'
+          });
+
+          currentOffset += 1.0;
+          layer++;
+        }
+      }
+    };
+
     const processLongitudinalBraces = (xCoord: number, linePrefix: string) => {
       let k = 0;
       while (k < rowsFromHigh.length - 1) {
@@ -609,12 +685,19 @@ const calculateRakingDeck = (
           const lowRow = rowsFromHigh[k + 2];
           const midRow = rowsFromHigh[k + 1];
           const lowNodes = getStandardNodes(xCoord, lowRow.y);
+          
+          // Raking deck height depends on the current tier.
+          // We apply layers if the specific brace's height span is large (> 3m roughly, mapped via maxH).
+          // We trigger layering if topElev - bottomElev > 3.0 at the higher tier.
+          const isHighDeck = (highNodes.topElev - highNodes.bottomElev) > 3.0;
 
-          addStackedBraces(
+          addParallelBraces(
+            braces,
             `RAKE_BRC_DEPTH_${linePrefix}_SPAN_${k}_TO_${k + 2}`,
-            xCoord, highRow.y, highNodes.topElev, highNodes.bottomElev,
-            xCoord, lowRow.y, lowNodes.topElev, lowNodes.bottomElev,
-            true // High row (back) top to low row (front) bottom
+            xCoord, highRow.y, highNodes.bottomElev, highNodes.topElev,
+            xCoord, lowRow.y, lowNodes.bottomElev, lowNodes.topElev,
+            false, // false = highAtA (since A is highRow and we go from A top to B bottom)
+            isHighDeck
           );
 
           // Middle foot gets a light pink swivel connector where the diagonal brace crosses it
@@ -658,11 +741,13 @@ const calculateRakingDeck = (
       if (bIdx % 2 === 0) {
         // Bay 1 (and alternate bays):
         // Back: bottom of left standard -> top of right standard
-        addStackedBraces(
+        addParallelBraces(
+          braces,
           `RAKE_BRC_WIDTH_BACK_BAY${bIdx}`,
-          xLeft, yRear, rearLeftNodes.topElev, rearLeftNodes.bottomElev,
-          xRight, yRear, rearRightNodes.topElev, rearRightNodes.bottomElev,
-          false // Left bottom -> Right top
+          xLeft, yRear, rearLeftNodes.bottomElev, rearLeftNodes.topElev,
+          xRight, yRear, rearRightNodes.bottomElev, rearRightNodes.topElev,
+          true, // lowAtA (left is bottom, right is top)
+          (rearLeftNodes.topElev - rearLeftNodes.bottomElev) > 3.0
         );
         const rearZMid = (rearLeftNodes.bottomElev + rearRightNodes.topElev) / 2;
         const rearSwivelKey = `${xMid.toFixed(2)}_${yRear.toFixed(2)}_${rearZMid.toFixed(2)}`;
@@ -676,11 +761,13 @@ const calculateRakingDeck = (
         }
 
         // Front: top of left standard -> bottom of right standard
-        addStackedBraces(
+        addParallelBraces(
+          braces,
           `RAKE_BRC_WIDTH_FRONT_BAY${bIdx}`,
-          xLeft, yFront, frontLeftNodes.topElev, frontLeftNodes.bottomElev,
-          xRight, yFront, frontRightNodes.topElev, frontRightNodes.bottomElev,
-          true // Left top -> Right bottom
+          xLeft, yFront, frontLeftNodes.bottomElev, frontLeftNodes.topElev,
+          xRight, yFront, frontRightNodes.bottomElev, frontRightNodes.topElev,
+          false, // highAtA (left is top, right is bottom)
+          (frontLeftNodes.topElev - frontLeftNodes.bottomElev) > 3.0
         );
         const frontZMid = (frontLeftNodes.topElev + frontRightNodes.bottomElev) / 2;
         const frontSwivelKey = `${xMid.toFixed(2)}_${yFront.toFixed(2)}_${frontZMid.toFixed(2)}`;
@@ -695,11 +782,13 @@ const calculateRakingDeck = (
       } else {
         // Bay 2 (and alternate bays):
         // Back: top of left standard -> bottom of right standard
-        addStackedBraces(
+        addParallelBraces(
+          braces,
           `RAKE_BRC_WIDTH_BACK_BAY${bIdx}`,
-          xLeft, yRear, rearLeftNodes.topElev, rearLeftNodes.bottomElev,
-          xRight, yRear, rearRightNodes.topElev, rearRightNodes.bottomElev,
-          true // Left top -> Right bottom
+          xLeft, yRear, rearLeftNodes.bottomElev, rearLeftNodes.topElev,
+          xRight, yRear, rearRightNodes.bottomElev, rearRightNodes.topElev,
+          false, // highAtA
+          (rearLeftNodes.topElev - rearLeftNodes.bottomElev) > 3.0
         );
         const rearZMid = (rearLeftNodes.topElev + rearRightNodes.bottomElev) / 2;
         const rearSwivelKey = `${xMid.toFixed(2)}_${yRear.toFixed(2)}_${rearZMid.toFixed(2)}`;
@@ -713,11 +802,13 @@ const calculateRakingDeck = (
         }
 
         // Front: bottom of left standard -> top of right standard
-        addStackedBraces(
+        addParallelBraces(
+          braces,
           `RAKE_BRC_WIDTH_FRONT_BAY${bIdx}`,
-          xLeft, yFront, frontLeftNodes.topElev, frontLeftNodes.bottomElev,
-          xRight, yFront, frontRightNodes.topElev, frontRightNodes.bottomElev,
-          false // Left bottom -> Right top
+          xLeft, yFront, frontLeftNodes.bottomElev, frontLeftNodes.topElev,
+          xRight, yFront, frontRightNodes.bottomElev, frontRightNodes.topElev,
+          true, // lowAtA
+          (frontLeftNodes.topElev - frontLeftNodes.bottomElev) > 3.0
         );
         const frontZMid = (frontLeftNodes.bottomElev + frontRightNodes.topElev) / 2;
         const frontSwivelKey = `${xMid.toFixed(2)}_${yFront.toFixed(2)}_${frontZMid.toFixed(2)}`;
@@ -1621,43 +1712,50 @@ const calculateSingleDeck = (
       return { topElev: f.targetElevation - 0.15, bottomElev: f.groundHeight + 0.15 };
     };
 
-    // Helper to add stacked braces for flat decks
-    const addStackedBracesFlat = (
+    // Helper to add layered parallel braces if height > 3.0m
+    const addParallelBraces = (
+      bracesArray: any[],
       prefix: string,
-      x0: number, y0: number, top0: number, bot0: number,
-      x1: number, y1: number, top1: number, bot1: number,
-      topDown: boolean
+      xA: number, yA: number, botA: number, topA: number,
+      xB: number, yB: number, botB: number, topB: number,
+      lowAtA: boolean,
+      isHighDeck: boolean
     ) => {
-      const startTop = topDown ? top0 : bot0;
-      const startBot = topDown ? bot0 : top0;
-      const endTop = topDown ? bot1 : top1;
-      const endBot = topDown ? top1 : bot1;
-      
-      const liftH = 2.0;
-      let currentZ0 = startTop;
-      let currentZ1 = endBot;
-      
-      let liftCount = 0;
-      while (Math.abs(currentZ0 - startBot) > 0.5 && Math.abs(currentZ1 - endTop) > 0.5) {
-        let nextZ0 = topDown ? Math.max(startBot, currentZ0 - liftH) : Math.min(startBot, currentZ0 + liftH);
-        let nextZ1 = topDown ? Math.min(endTop, currentZ1 + liftH) : Math.max(endTop, currentZ1 - liftH);
-        
-        addBraceSafe(`${prefix}_LIFT${liftCount}`, 
-          { x: x0, y: y0, z: currentZ0 }, 
-          { x: x1, y: y1, z: currentZ1 }
+      const hA = topA - botA;
+      const hB = topB - botB;
+      const maxH = Math.max(hA, hB);
+
+      if (!isHighDeck || maxH <= 2.2) {
+        // Use addBraceSafe instead of direct push to prevent duplicates in flat deck
+        addBraceSafe(prefix,
+          { x: xA, y: yA, z: lowAtA ? botA : topA },
+          { x: xB, y: yB, z: lowAtA ? topB : botB }
         );
-        
-        currentZ0 = nextZ0;
-        currentZ1 = nextZ1;
-        liftCount++;
-        if (liftCount > 10) break;
-      }
-      
-      if (liftCount === 0 || (Math.abs(currentZ0 - startBot) > 0.1 && Math.abs(currentZ1 - endTop) > 0.1)) {
-        addBraceSafe(`${prefix}_LIFT${liftCount}`, 
-          { x: x0, y: y0, z: currentZ0 }, 
-          { x: x1, y: y1, z: endTop }
-        );
+      } else {
+        const maxBraceSpan = 2.0;
+        let currentOffset = 0;
+        let layer = 0;
+
+        while (currentOffset < maxH - 0.1) {
+          let span = Math.min(maxBraceSpan, maxH - currentOffset);
+          
+          let zStartA = botA + currentOffset;
+          let zStartB = botB + currentOffset;
+          
+          let zEndA = zStartA + span;
+          let zEndB = zStartB + span;
+
+          if (zEndA > topA) zEndA = topA;
+          if (zEndB > topB) zEndB = topB;
+
+          addBraceSafe(`${prefix}_L${layer}`,
+            { x: xA, y: yA, z: lowAtA ? zStartA : zEndA },
+            { x: xB, y: yB, z: lowAtA ? zEndB : zStartB }
+          );
+
+          currentOffset += 1.0;
+          layer++;
+        }
       }
     };
 
@@ -1680,31 +1778,43 @@ const calculateSingleDeck = (
       const n11 = getElevNodes(x1, y1);
 
       // (1) South face vertical diagonal brace
-      addStackedBracesFlat(`BRC_BLK_${blkIdx}_S`, 
-        x0, y0, n00.topElev, n00.bottomElev, 
-        x1, y0, n10.topElev, n10.bottomElev, 
-        !parity
+      addParallelBraces(
+        braces,
+        `BRC_BLK_${blkIdx}_S`, 
+        x0, y0, n00.bottomElev, n00.topElev,
+        x1, y0, n10.bottomElev, n10.topElev,
+        parity,
+        deckHeight > 3.0
       );
 
       // (2) North face vertical diagonal brace
-      addStackedBracesFlat(`BRC_BLK_${blkIdx}_N`, 
-        x0, y1, n01.topElev, n01.bottomElev, 
-        x1, y1, n11.topElev, n11.bottomElev, 
-        parity
+      addParallelBraces(
+        braces,
+        `BRC_BLK_${blkIdx}_N`, 
+        x0, y1, n01.bottomElev, n01.topElev,
+        x1, y1, n11.bottomElev, n11.topElev,
+        !parity,
+        deckHeight > 3.0
       );
 
       // (3) West face vertical diagonal brace
-      addStackedBracesFlat(`BRC_BLK_${blkIdx}_W`, 
-        x0, y0, n00.topElev, n00.bottomElev, 
-        x0, y1, n01.topElev, n01.bottomElev, 
-        !parity
+      addParallelBraces(
+        braces,
+        `BRC_BLK_${blkIdx}_W`, 
+        x0, y0, n00.bottomElev, n00.topElev,
+        x0, y1, n01.bottomElev, n01.topElev,
+        parity,
+        deckHeight > 3.0
       );
 
       // (4) East face vertical diagonal brace
-      addStackedBracesFlat(`BRC_BLK_${blkIdx}_E`, 
-        x1, y0, n10.topElev, n10.bottomElev, 
-        x1, y1, n11.topElev, n11.bottomElev, 
-        parity
+      addParallelBraces(
+        braces,
+        `BRC_BLK_${blkIdx}_E`, 
+        x1, y0, n10.bottomElev, n10.topElev,
+        x1, y1, n11.bottomElev, n11.topElev,
+        !parity,
+        deckHeight > 3.0
       );
     });
   }

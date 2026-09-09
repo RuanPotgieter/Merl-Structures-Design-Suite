@@ -26,13 +26,20 @@ const SectionHeader: React.FC<{ label: string }> = ({ label }) => (
   </div>
 );
 
-const NumberInput: React.FC<{ value: number; onChange: (v: number) => void }> = ({ value, onChange }) => (
+const NumberInput: React.FC<{ value: number | ''; onChange: (v: number | '') => void }> = ({ value, onChange }) => (
   <input
     type="number"
     className="bg-black/50 border border-cyan-500/20 text-cyan-400 font-mono text-[11px] px-2 py-1 w-full outline-none focus:border-cyan-500 focus:bg-cyan-950/40 transition-all rounded"
-    value={value}
+    value={value === '' ? '' : value}
     step="0.1"
-    onChange={(e) => onChange(parseFloat(e.target.value) || 0)}
+    onChange={(e) => {
+      const val = e.target.value;
+      if (val === '') {
+        onChange('');
+      } else {
+        onChange(parseFloat(val) || 0);
+      }
+    }}
   />
 );
 
@@ -85,7 +92,7 @@ export const PropertiesPanel: React.FC<PropertiesPanelProps> = ({
               <SectionHeader label="Accessories" />
               <div className="p-4 space-y-2">
                 <button 
-                  onClick={() => onRampsChange([...ramps, { id: Math.random().toString(), side: 'bottom', offset: 0, width: 1.2 }])}
+                  onClick={() => onRampsChange([...ramps, { id: Math.random().toString(), deckId: 'main-deck', corner: 'topLeft', side: 'bottom', offset: 0, width: 1.2, length: 2.4, handrailType: 'both' }])}
                   className="w-full py-2 bg-cyan-500/10 border border-cyan-500/30 text-[10px] font-black uppercase text-cyan-400 hover:bg-cyan-500/20 rounded-lg transition-all"
                 >
                   + Add Ramp
