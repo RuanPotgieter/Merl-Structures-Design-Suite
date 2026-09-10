@@ -7,8 +7,8 @@
 }
 
 body {
-  background-color: #0b0d11;
-  color: #f1f5f9;
+  background-color: #f0f8ff;
+  color: #0f172a;
 }
 
 .custom-scrollbar::-webkit-scrollbar {
@@ -17,14 +17,14 @@ body {
 }
 
 .custom-scrollbar::-webkit-scrollbar-track {
-  background: #0f1217;
+  background: #e6f2f5;
 }
 
 .custom-scrollbar::-webkit-scrollbar-thumb {
-  background: #262c38;
+  background: #b8d4e3;
   border-radius: 3px;
 }
 
 .custom-scrollbar::-webkit-scrollbar-thumb:hover {
-  background: #3d4659;
+  background: #a3c9db;
 }

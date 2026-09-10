@@ -28,7 +28,7 @@ export const COMPONENT_COLORS = {
     2: "#22c55e",     // 2m - Green
     1.75: "#14b8a6",  // 1.75m - Teal
     1.5: "#eab308",   // 1.5m - Yellow
-    1.25: "#f59e0b",  // 1.25m - Amber
+    1.25: "#06b6d4",  // 1.25m - Amber
     1: "#f97316",     // 1m - Orange
     0.75: "#f43f5e",  // 0.75m - Rose
     0.5: "#ef4444"    // 0.5m - Red

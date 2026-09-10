@@ -204,17 +204,17 @@ export const ProjectManager: React.FC<ProjectManagerProps> = ({
             setIsOpen(true);
             if (isAuthenticated) fetchDriveProjects();
           }}
-          className="flex items-center gap-2 px-3 py-1.5 bg-[#161922] hover:bg-[#1A1D24] border border-[#232733] hover:border-amber-400/50 rounded text-xs font-mono font-semibold text-[#cbd5e1] hover:text-amber-400 transition-all shadow-sm"
+          className="flex items-center gap-2 px-3 py-1.5 bg-[#e6f2f5] hover:bg-[#dcebf0] border border-[#b8d4e3] hover:border-cyan-600/50 rounded text-xs font-mono font-semibold text-[#334155] hover:text-cyan-600 transition-all shadow-sm"
         >
-          <FolderOpen size={13} className="text-amber-400" />
+          <FolderOpen size={13} className="text-cyan-600" />
           Projects
         </button>
         
         {currentProject && (
-          <div className="flex items-center gap-2 px-2.5 py-1 bg-[#161922] border border-[#232733] rounded text-xs font-mono shadow-sm">
+          <div className="flex items-center gap-2 px-2.5 py-1 bg-[#e6f2f5] border border-[#b8d4e3] rounded text-xs font-mono shadow-sm">
             <span className="text-[#64748b] text-[10px] uppercase">Active:</span>
-            <span className="text-amber-400 font-semibold truncate max-w-[120px]">{currentProject.siteName}</span>
-            <button onClick={() => setIsEditing(true)} className="ml-1 text-[#64748b] hover:text-amber-400 transition-colors">
+            <span className="text-cyan-600 font-semibold truncate max-w-[120px]">{currentProject.siteName}</span>
+            <button onClick={() => setIsEditing(true)} className="ml-1 text-[#64748b] hover:text-cyan-600 transition-colors">
               <Edit2 size={11} />
             </button>
           </div>
@@ -223,48 +223,48 @@ export const ProjectManager: React.FC<ProjectManagerProps> = ({
 
       {/* Project Modal */}
       {isOpen && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-[#090b10]/80 backdrop-blur-md">
-          <div className="bg-[#161922] border border-[#232733] rounded-xl w-full max-w-3xl shadow-2xl overflow-hidden flex flex-col max-h-[80vh]">
-            <div className="flex items-center justify-between p-4 border-b border-[#232733] bg-[#1A1D24]">
-              <h2 className="text-sm font-mono font-bold text-[#f8fafc] flex items-center gap-2 tracking-wider uppercase">
-                <FolderOpen size={16} className="text-amber-400" />
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-[#001f3f]/80 backdrop-blur-md">
+          <div className="bg-[#e6f2f5] border border-[#b8d4e3] rounded-xl w-full max-w-3xl shadow-2xl overflow-hidden flex flex-col max-h-[80vh]">
+            <div className="flex items-center justify-between p-4 border-b border-[#b8d4e3] bg-[#dcebf0]">
+              <h2 className="text-sm font-mono font-bold text-[#0f172a] flex items-center gap-2 tracking-wider uppercase">
+                <FolderOpen size={16} className="text-cyan-600" />
                 Project Directory & Sync
               </h2>
               <div className="flex items-center gap-4">
                 {isAuthenticated ? (
-                  <button onClick={handleLogout} className="flex items-center gap-1.5 text-[#94a3b8] hover:text-[#ef4444] text-xs font-mono font-semibold transition-colors">
+                  <button onClick={handleLogout} className="flex items-center gap-1.5 text-[#475569] hover:text-[#ef4444] text-xs font-mono font-semibold transition-colors">
                     <LogOut size={13} /> Logout
                   </button>
                 ) : (
-                  <button onClick={handleLogin} className="flex items-center gap-1.5 px-3 py-1.5 bg-[#12151C] border border-[#2b303d] text-[#cbd5e1] rounded shadow-sm hover:border-amber-400 text-xs font-mono font-semibold transition-all">
+                  <button onClick={handleLogin} className="flex items-center gap-1.5 px-3 py-1.5 bg-[#eef5f9] border border-[#a3c9db] text-[#334155] rounded shadow-sm hover:border-cyan-600 text-xs font-mono font-semibold transition-all">
                     <img src="https://www.gstatic.com/firebasejs/ui/2.0.0/images/auth/google.svg" alt="Google logo" className="w-3.5 h-3.5" />
                     Sign in with Google
                   </button>
                 )}
-                <button onClick={() => setIsOpen(false)} className="text-[#64748b] hover:text-[#f8fafc] transition-colors">
+                <button onClick={() => setIsOpen(false)} className="text-[#64748b] hover:text-[#0f172a] transition-colors">
                   <X size={18} />
                 </button>
               </div>
             </div>
             
-            <div className="p-5 flex-1 overflow-y-auto bg-[#12151C] grid grid-cols-1 md:grid-cols-2 gap-6">
+            <div className="p-5 flex-1 overflow-y-auto bg-[#eef5f9] grid grid-cols-1 md:grid-cols-2 gap-6">
               
               {/* Local Projects */}
               <div>
                  <div className="flex justify-between items-center mb-3">
-                   <h3 className="text-xs font-mono font-bold text-amber-400 uppercase tracking-wider">Local Workspaces</h3>
+                   <h3 className="text-xs font-mono font-bold text-cyan-600 uppercase tracking-wider">Local Workspaces</h3>
                  </div>
                  
                  {projects.length === 0 ? (
-                   <div className="text-center py-8 border border-[#232733] rounded-lg border-dashed bg-[#161922]/50">
+                   <div className="text-center py-8 border border-[#b8d4e3] rounded-lg border-dashed bg-[#e6f2f5]/50">
                      <p className="text-[#64748b] text-xs font-mono">No local projects saved.</p>
                    </div>
                  ) : (
                    <div className="grid gap-2.5">
                      {projects.map(p => (
-                       <div key={p.id} className="flex items-center justify-between p-3 bg-[#161922] border border-[#232733] rounded-lg hover:border-amber-400/50 transition-all group">
+                       <div key={p.id} className="flex items-center justify-between p-3 bg-[#e6f2f5] border border-[#b8d4e3] rounded-lg hover:border-cyan-600/50 transition-all group">
                          <div>
-                           <div className="font-mono font-semibold text-[#f8fafc] text-xs">{p.siteName}</div>
+                           <div className="font-mono font-semibold text-[#0f172a] text-xs">{p.siteName}</div>
                            <div className="text-[11px] font-mono text-[#64748b] mt-0.5">Client: {p.clientName}</div>
                          </div>
                          <div className="flex items-center gap-2 opacity-0 group-hover:opacity-100 transition-opacity">
@@ -273,7 +273,7 @@ export const ProjectManager: React.FC<ProjectManagerProps> = ({
                                onLoadProject(p);
                                setIsOpen(false);
                              }}
-                             className="px-2.5 py-1 bg-[#1A1D24] hover:bg-amber-400 hover:text-stone-950 border border-[#2b303d] rounded text-xs font-mono font-semibold text-amber-400 transition-colors"
+                             className="px-2.5 py-1 bg-[#dcebf0] hover:bg-cyan-600 hover:text-white border border-[#a3c9db] rounded text-xs font-mono font-semibold text-cyan-600 transition-colors"
                            >
                              Open
                            </button>
@@ -291,35 +291,35 @@ export const ProjectManager: React.FC<ProjectManagerProps> = ({
               </div>
 
               {/* Cloud Projects */}
-              <div className="border-t md:border-t-0 md:border-l border-[#232733] pt-6 md:pt-0 md:pl-6">
+              <div className="border-t md:border-t-0 md:border-l border-[#b8d4e3] pt-6 md:pt-0 md:pl-6">
                  <div className="flex justify-between items-center mb-3">
-                   <h3 className="text-xs font-mono font-bold text-amber-400 uppercase tracking-wider flex items-center gap-1.5"><Cloud size={13} className="text-amber-400" /> Google Drive Cloud</h3>
+                   <h3 className="text-xs font-mono font-bold text-cyan-600 uppercase tracking-wider flex items-center gap-1.5"><Cloud size={13} className="text-cyan-600" /> Google Drive Cloud</h3>
                  </div>
                  
                  {!isAuthenticated ? (
-                    <div className="text-center py-8 border border-[#232733] rounded-lg border-dashed bg-[#161922]/50">
+                    <div className="text-center py-8 border border-[#b8d4e3] rounded-lg border-dashed bg-[#e6f2f5]/50">
                        <p className="text-[#64748b] text-xs font-mono mb-3">Sign in to sync with Google Drive</p>
                     </div>
                  ) : isLoadingDrive ? (
-                    <div className="text-center py-8 border border-[#232733] rounded-lg border-dashed bg-[#161922]/50">
+                    <div className="text-center py-8 border border-[#b8d4e3] rounded-lg border-dashed bg-[#e6f2f5]/50">
                        <p className="text-[#64748b] text-xs font-mono">Loading Drive files...</p>
                     </div>
                  ) : driveProjects.length === 0 ? (
-                    <div className="text-center py-8 border border-[#232733] rounded-lg border-dashed bg-[#161922]/50">
+                    <div className="text-center py-8 border border-[#b8d4e3] rounded-lg border-dashed bg-[#e6f2f5]/50">
                        <p className="text-[#64748b] text-xs font-mono">No cloud projects found.</p>
                     </div>
                  ) : (
                    <div className="grid gap-2.5">
                      {driveProjects.map(p => (
-                       <div key={p.id} className="flex items-center justify-between p-3 bg-[#161922] border border-[#232733] rounded-lg hover:border-amber-400/50 transition-all group">
+                       <div key={p.id} className="flex items-center justify-between p-3 bg-[#e6f2f5] border border-[#b8d4e3] rounded-lg hover:border-cyan-600/50 transition-all group">
                          <div>
-                           <div className="font-mono font-semibold text-[#f8fafc] text-xs truncate max-w-[140px]">{p.name.replace('.json', '')}</div>
+                           <div className="font-mono font-semibold text-[#0f172a] text-xs truncate max-w-[140px]">{p.name.replace('.json', '')}</div>
                            <div className="text-[10px] font-mono text-[#64748b] mt-0.5">{new Date(p.modifiedTime).toLocaleDateString()}</div>
                          </div>
                          <div className="flex items-center gap-2 opacity-0 group-hover:opacity-100 transition-opacity">
                            <button 
                              onClick={() => loadFromDrive(p.id)}
-                             className="px-2.5 py-1 bg-[#1A1D24] hover:bg-amber-400 hover:text-stone-950 border border-[#2b303d] rounded text-xs font-mono font-semibold text-amber-400 transition-colors"
+                             className="px-2.5 py-1 bg-[#dcebf0] hover:bg-cyan-600 hover:text-white border border-[#a3c9db] rounded text-xs font-mono font-semibold text-cyan-600 transition-colors"
                            >
                              Open
                            </button>
@@ -336,14 +336,14 @@ export const ProjectManager: React.FC<ProjectManagerProps> = ({
                  )}
               </div>
             </div>
-            <div className="p-4 border-t border-[#232733] bg-[#1A1D24] flex justify-end">
+            <div className="p-4 border-t border-[#b8d4e3] bg-[#dcebf0] flex justify-end">
                 <button 
                   onClick={() => {
                     onNewProject();
                     setIsOpen(false);
                     setIsEditing(true);
                   }}
-                  className="flex items-center gap-1.5 px-3.5 py-1.5 bg-amber-500 hover:bg-amber-400 text-stone-950 rounded text-xs font-mono font-bold uppercase tracking-wider transition-all shadow-sm"
+                  className="flex items-center gap-1.5 px-3.5 py-1.5 bg-cyan-500 hover:bg-cyan-600 text-white rounded text-xs font-mono font-bold uppercase tracking-wider transition-all shadow-sm"
                 >
                   <Plus size={14} />
                   New Project
@@ -355,51 +355,51 @@ export const ProjectManager: React.FC<ProjectManagerProps> = ({
 
       {/* Edit/Save Modal */}
       {isEditing && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-[#090b10]/80 backdrop-blur-md">
-          <div className="bg-[#161922] border border-[#232733] rounded-xl w-full max-w-md shadow-2xl overflow-hidden">
-            <div className="flex items-center justify-between p-4 border-b border-[#232733] bg-[#1A1D24]">
-              <h2 className="text-xs font-mono font-bold text-[#f8fafc] flex items-center gap-2 uppercase tracking-wider">
-                <Save size={15} className="text-amber-400" />
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-[#001f3f]/80 backdrop-blur-md">
+          <div className="bg-[#e6f2f5] border border-[#b8d4e3] rounded-xl w-full max-w-md shadow-2xl overflow-hidden">
+            <div className="flex items-center justify-between p-4 border-b border-[#b8d4e3] bg-[#dcebf0]">
+              <h2 className="text-xs font-mono font-bold text-[#0f172a] flex items-center gap-2 uppercase tracking-wider">
+                <Save size={15} className="text-cyan-600" />
                 {currentProject ? 'Edit Project Metadata' : 'Save Project Specification'}
               </h2>
-              <button onClick={() => setIsEditing(false)} className="text-[#64748b] hover:text-[#f8fafc] transition-colors">
+              <button onClick={() => setIsEditing(false)} className="text-[#64748b] hover:text-[#0f172a] transition-colors">
                 <X size={18} />
               </button>
             </div>
             
-            <div className="p-5 space-y-4 bg-[#12151C]">
+            <div className="p-5 space-y-4 bg-[#eef5f9]">
               <div>
-                <label className="block text-[11px] font-mono font-bold text-[#94a3b8] mb-1.5 uppercase tracking-wide">Site / Venue Name</label>
+                <label className="block text-[11px] font-mono font-bold text-[#475569] mb-1.5 uppercase tracking-wide">Site / Venue Name</label>
                 <input 
                   type="text" 
                   value={siteName}
                   onChange={e => setSiteName(e.target.value)}
-                  className="w-full bg-[#1A1D24] border border-[#2b303d] rounded px-3 py-2 text-xs font-mono text-[#f8fafc] focus:outline-none focus:border-amber-400 focus:ring-1 focus:ring-amber-400/50 transition-all shadow-inner"
+                  className="w-full bg-[#dcebf0] border border-[#a3c9db] rounded px-3 py-2 text-xs font-mono text-[#0f172a] focus:outline-none focus:border-cyan-600 focus:ring-1 focus:ring-cyan-600/50 transition-all shadow-inner"
                   placeholder="e.g. Festival Main Stage Setup"
                 />
               </div>
               <div>
-                <label className="block text-[11px] font-mono font-bold text-[#94a3b8] mb-1.5 uppercase tracking-wide">Client / Organization</label>
+                <label className="block text-[11px] font-mono font-bold text-[#475569] mb-1.5 uppercase tracking-wide">Client / Organization</label>
                 <input 
                   type="text" 
                   value={clientName}
                   onChange={e => setClientName(e.target.value)}
-                  className="w-full bg-[#1A1D24] border border-[#2b303d] rounded px-3 py-2 text-xs font-mono text-[#f8fafc] focus:outline-none focus:border-amber-400 focus:ring-1 focus:ring-amber-400/50 transition-all shadow-inner"
+                  className="w-full bg-[#dcebf0] border border-[#a3c9db] rounded px-3 py-2 text-xs font-mono text-[#0f172a] focus:outline-none focus:border-cyan-600 focus:ring-1 focus:ring-cyan-600/50 transition-all shadow-inner"
                   placeholder="e.g. Acme Productions"
                 />
               </div>
             </div>
             
-            <div className="p-4 border-t border-[#232733] bg-[#1A1D24] flex justify-end gap-2">
+            <div className="p-4 border-t border-[#b8d4e3] bg-[#dcebf0] flex justify-end gap-2">
               <button 
                 onClick={() => setIsEditing(false)}
-                className="px-3 py-1.5 rounded text-xs font-mono font-semibold text-[#94a3b8] hover:text-[#f8fafc] hover:bg-[#232733] transition-colors"
+                className="px-3 py-1.5 rounded text-xs font-mono font-semibold text-[#475569] hover:text-[#0f172a] hover:bg-[#232733] transition-colors"
               >
                 Cancel
               </button>
               <button 
                 onClick={() => handleSave(false)}
-                className="px-3.5 py-1.5 bg-[#12151C] border border-[#2b303d] text-[#cbd5e1] hover:text-amber-400 hover:border-amber-400/50 rounded text-xs font-mono font-semibold transition-all shadow-sm"
+                className="px-3.5 py-1.5 bg-[#eef5f9] border border-[#a3c9db] text-[#334155] hover:text-cyan-600 hover:border-cyan-600/50 rounded text-xs font-mono font-semibold transition-all shadow-sm"
               >
                 Save Local
               </button>
@@ -407,7 +407,7 @@ export const ProjectManager: React.FC<ProjectManagerProps> = ({
                 <button 
                   onClick={() => handleSave(true)}
                   disabled={isLoadingDrive}
-                  className="px-3.5 py-1.5 bg-amber-500 hover:bg-amber-400 text-stone-950 rounded text-xs font-mono font-bold uppercase tracking-wider disabled:opacity-50 transition-all shadow-sm flex items-center gap-1.5"
+                  className="px-3.5 py-1.5 bg-cyan-500 hover:bg-cyan-600 text-white rounded text-xs font-mono font-bold uppercase tracking-wider disabled:opacity-50 transition-all shadow-sm flex items-center gap-1.5"
                 >
                   <Cloud size={14} /> Save to Drive
                 </button>
