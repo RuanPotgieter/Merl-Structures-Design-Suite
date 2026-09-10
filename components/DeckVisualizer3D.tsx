@@ -280,7 +280,7 @@ const TerrainMesh: React.FC<{ terrain: TerrainConfig, dimensions: any, rostrums:
       const worldZ = -pos.getY(i);
       let groundY = getGroundYAt(x, worldZ, terrain, dimensions.width, dimensions.depth);
       
-      pos.setZ(i, groundY);
+      pos.setZ(i, groundY - 0.02);
     }
     geo.computeVertexNormals();
     return geo;

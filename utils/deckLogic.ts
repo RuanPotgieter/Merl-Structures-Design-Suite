@@ -174,30 +174,14 @@ export const getLedgerElevations = (f1: Foot, f2: Foot): number[] => {
   selected.push(kicker);
 
   const highestCommon = common[common.length - 1];
-  const groundAvg = (f1.groundHeight + f2.groundHeight) / 2;
-  const heightAboveGround = highestCommon - groundAvg;
 
-  if (heightAboveGround > 1.75) {
-    // Doubling up: one at top, and every 1m down
+  if (highestCommon > kicker + 0.4) {
     let curr = highestCommon;
-    while (curr > kicker + 0.5) { // don't overlap with kicker
+    while (curr >= kicker + 0.45) { // allow pushing ledgers at least ~0.5m apart from kicker
       selected.push(curr);
-      // find next common elevation approx 1m down
       const nextElev = common.slice().reverse().find(e => curr - e >= 0.95);
       if (!nextElev) break;
       curr = nextElev;
-    }
-  } else {
-    // Just 1m intervals up from kicker
-    let lastElev = kicker;
-    for (let i = 1; i < common.length; i++) {
-      if (common[i] - lastElev >= 0.95) {
-        selected.push(common[i]);
-        lastElev = common[i];
-      }
-    }
-    if (highestCommon - lastElev >= 1.4) {
-      selected.push(highestCommon);
     }
   }
   
@@ -403,6 +387,91 @@ const calculateRakingDeck = (
     }
   });
 
+  
+  const widthBays = Math.round(exactWidth / 1.2);
+  const depthBays = Math.round(exactDepth / 1.2);
+
+  
+  const getBlockBays = (totalBays: number) => {
+    if (totalBays <= 2) {
+      return [{ start: 0, end: totalBays }];
+    }
+    const list: { start: number; end: number }[] = [];
+    let cur = 0;
+    while (cur + 2 <= totalBays) {
+      list.push({ start: cur, end: cur + 2 });
+      cur += 3;
+    }
+    const last = list[list.length - 1];
+    if (last && last.end < totalBays) {
+      const endStart = totalBays - 2;
+      if (endStart !== last.start) {
+        list.push({ start: endStart, end: totalBays });
+      }
+    }
+    return list;
+  };
+
+  const xBlocks = getBlockBays(widthBays);
+  const yBlocks = getBlockBays(depthBays);
+
+  interface BracingBlockDef {
+    colStart: number;
+    colEnd: number;
+    rowStart: number;
+    rowEnd: number;
+  }
+
+  const getBracedIndices = (blocks: any[], size: number) => {
+    const indices = new Set<number>();
+    if (size > 20) {
+      if (blocks.length > 0) indices.add(0);
+      if (blocks.length > 1) indices.add(1);
+      if (blocks.length > 0) indices.add(blocks.length - 1);
+      if (blocks.length > 1) indices.add(blocks.length - 2);
+      if (blocks.length > 0) indices.add(Math.floor(blocks.length / 2));
+    } else {
+      if (blocks.length > 0) indices.add(0);
+      if (blocks.length > 0) indices.add(blocks.length - 1);
+    }
+    return indices;
+  };
+
+  const bracedX = getBracedIndices(xBlocks, exactWidth);
+  const bracedY = getBracedIndices(yBlocks, exactDepth);
+
+  const bracingBlocks: BracingBlockDef[] = [];
+  xBlocks.forEach((xb, xIdx) => {
+    yBlocks.forEach((yb, yIdx) => {
+      if (bracedX.has(xIdx) || bracedY.has(yIdx)) {
+        bracingBlocks.push({
+          colStart: xb.start,
+          colEnd: xb.end,
+          rowStart: yb.start,
+          rowEnd: yb.end
+        });
+      }
+    });
+  });
+
+  const isCellBraced = (cellX: number, cellY: number): boolean => {
+    const col = Math.round(cellX / 1.2);
+    const row = Math.round(cellY / 1.2);
+    if (col < 0 || col >= widthBays || row < 0 || row >= depthBays) return false;
+    return bracingBlocks.some(b => col >= b.colStart && col < b.colEnd && row >= b.rowStart && row < b.rowEnd);
+  };
+
+  const isCellLedgered = (cellX: number, cellY: number, wBays: number, dBays: number): boolean => {
+    const col = Math.round(cellX / 1.2);
+    const row = Math.round(cellY / 1.2);
+    if (col < 0 || col >= wBays || row < 0 || row >= dBays) return false;
+    const xBs = getBlockBays(wBays);
+    const yBs = getBlockBays(dBays);
+    const inX = xBs.some(b => col >= b.start && col < b.end);
+    const inY = yBs.some(b => row >= b.start && row < b.end);
+    return inX && inY;
+  };
+
   // --- LEDGER GENERATION LOGIC ---
   // Ledger spacing vertically is 1m apart.
   // When the foot size on respective level exceeds 1750mm a standard with a double cluster is used to double up on the ledger line.
@@ -423,46 +492,62 @@ const calculateRakingDeck = (
 
       // Horizontal connection along X (same depth y)
       if (Math.abs(dy) < 0.05 && dx > 0.5 && dx <= 2.45) {
-        const connKey = `H_${x.toFixed(2)}_${y.toFixed(2)}_${f2.position.x.toFixed(2)}`;
-        if (!processedConnections.has(connKey)) {
-          processedConnections.add(connKey);
-          
-          const elevations = getLedgerElevations(f, f2);
+        const hasMiddleFoot = feet.some(f3 => f3.id !== f.id && f3.id !== f2.id && f3.assembly && Math.abs(f3.position.y - y) < 0.05 && f3.position.x > x + 0.1 && f3.position.x < f2.position.x - 0.1);
+        if (!hasMiddleFoot) {
+          const connKey = `H_${x.toFixed(2)}_${y.toFixed(2)}_${f2.position.x.toFixed(2)}`;
+          if (!processedConnections.has(connKey)) {
+            const cellAboveBraced = isCellLedgered(x, y, widthBays, depthBays);
+            const cellBelowBraced = isCellLedgered(x, y - 1.2, widthBays, depthBays);
+            const isPerimeter = y <= 0.05 || y >= (depthBays * stepDepth) - 0.05;
+            if (isPerimeter || cellAboveBraced || cellBelowBraced) {
+              processedConnections.add(connKey);
+              
+              const elevations = getLedgerElevations(f, f2);
 
-          const ledgerLen = dx;
-          elevations.forEach((elev, idx) => {
-            ledgerCounts.blueBlue++;
-            ledgers.push({
-              id: `RAKE_LDG_${connKey}_${idx}`,
-              position: { x: (x + f2.position.x) / 2, y, z: elev },
-              rotation: { x: 0, y: 0, z: Math.PI / 2 },
-              length: ledgerLen,
-              color: '#3b82f6',
-              type: 'blueBlue'
-            });
-          });
+              const ledgerLen = dx;
+              elevations.forEach((elev, idx) => {
+                ledgerCounts.blueBlue++;
+                ledgers.push({
+                  id: `RAKE_LDG_${connKey}_${idx}`,
+                  position: { x: (x + f2.position.x) / 2, y, z: elev },
+                  rotation: { x: 0, y: 0, z: Math.PI / 2 },
+                  length: ledgerLen,
+                  color: '#3b82f6',
+                  type: 'blueBlue'
+                });
+              });
+            }
+          }
         }
       }
 
       // Depth connection along Z (same x)
       if (Math.abs(dx) < 0.05 && dy > 0.4 && dy <= stepDepth * 1.1) {
-        const connKey = `V_${x.toFixed(2)}_${y.toFixed(2)}_${f2.position.y.toFixed(2)}`;
-        if (!processedConnections.has(connKey)) {
-          processedConnections.add(connKey);
-          
-          const elevations = getLedgerElevations(f, f2);
-          
-          elevations.forEach((elev, idx) => {
-            ledgerCounts.blueBlack++;
-            ledgers.push({
-              id: `RAKE_LDG_${connKey}_${idx}`,
-              position: { x, y: (y + f2.position.y) / 2, z: elev },
-              rotation: { x: Math.PI / 2, y: 0, z: 0 },
-              length: dy,
-              color: '#22c55e',
-              type: 'blueBlack'
-            });
-          });
+        const hasMiddleFoot = feet.some(f3 => f3.id !== f.id && f3.id !== f2.id && f3.assembly && Math.abs(f3.position.x - x) < 0.05 && f3.position.y > y + 0.1 && f3.position.y < f2.position.y - 0.1);
+        if (!hasMiddleFoot) {
+          const connKey = `V_${x.toFixed(2)}_${y.toFixed(2)}_${f2.position.y.toFixed(2)}`;
+          if (!processedConnections.has(connKey)) {
+            const cellRightBraced = isCellLedgered(x, y, widthBays, depthBays);
+            const cellLeftBraced = isCellLedgered(x - 1.2, y, widthBays, depthBays);
+            const isPerimeter = x <= 0.05 || x >= deck.width - 0.05;
+            if (isPerimeter || cellRightBraced || cellLeftBraced) {
+              processedConnections.add(connKey);
+              
+              const elevations = getLedgerElevations(f, f2);
+              
+              elevations.forEach((elev, idx) => {
+                ledgerCounts.blueBlack++;
+                ledgers.push({
+                  id: `RAKE_LDG_${connKey}_${idx}`,
+                  position: { x, y: (y + f2.position.y) / 2, z: elev },
+                  rotation: { x: Math.PI / 2, y: 0, z: 0 },
+                  length: dy,
+                  color: '#22c55e',
+                  type: 'blueBlack'
+                });
+              });
+            }
+          }
         }
       }
     });
@@ -1523,44 +1608,30 @@ const calculateSingleDeck = (
     }
   });
 
-  // --- LEDGER GENERATION LOGIC ---
-  const ledgerCounts = { blueBlue: 0, blueBlack: 0, blackBlack: 0 };
-  const ledgers: Ledger[] = [];
-  const processedConnections = new Set<string>();
-
-  // Bracing blocks tie 4 ledger blocks (a 2x2 of 1.2m bays = 2.4m x 2.4m) together.
-  // Each bracing block consists of EXACTLY 4 red vertical diagonal braces on its 4 outer faces:
-  // South face, North face, West face, East face.
-  const widthBays = Math.round(exactWidth / 1.2);
-  const depthBays = Math.round(exactDepth / 1.2);
-
+    
+  
   const getBlockBays = (totalBays: number) => {
     if (totalBays <= 2) {
       return [{ start: 0, end: totalBays }];
     }
     const list: { start: number; end: number }[] = [];
     let cur = 0;
-    while (cur < totalBays) {
-      const start = cur;
-      const end = Math.min(totalBays, start + 2);
-      if (end > start) {
-        list.push({ start, end });
-      }
-      // 1 open bay between blocks
-      cur = end + 1;
+    while (cur + 2 <= totalBays) {
+      list.push({ start: cur, end: cur + 2 });
+      cur += 3;
     }
-    // Ensure the far edge has a securing block if there are remaining unbraced bays
     const last = list[list.length - 1];
     if (last && last.end < totalBays) {
-      const endStart = Math.max(0, totalBays - 2);
-      if (!list.some(item => item.start === endStart)) {
+      const endStart = totalBays - 2;
+      if (endStart !== last.start) {
         list.push({ start: endStart, end: totalBays });
       }
     }
     return list;
   };
 
-  const xBlocks = getBlockBays(widthBays);
+  const depthBays = Math.round(exactDepth / 1.2);
+  const xBlocks = getBlockBays(cols);
   const yBlocks = getBlockBays(depthBays);
 
   interface BracingBlockDef {
@@ -1570,14 +1641,28 @@ const calculateSingleDeck = (
     rowEnd: number;
   }
 
+  const getBracedIndices = (blocks: any[], size: number) => {
+    const indices = new Set<number>();
+    if (size > 20) {
+      if (blocks.length > 0) indices.add(0);
+      if (blocks.length > 1) indices.add(1);
+      if (blocks.length > 0) indices.add(blocks.length - 1);
+      if (blocks.length > 1) indices.add(blocks.length - 2);
+      if (blocks.length > 0) indices.add(Math.floor(blocks.length / 2));
+    } else {
+      if (blocks.length > 0) indices.add(0);
+      if (blocks.length > 0) indices.add(blocks.length - 1);
+    }
+    return indices;
+  };
+
+  const bracedX = getBracedIndices(xBlocks, exactWidth);
+  const bracedY = getBracedIndices(yBlocks, exactDepth);
+
   const bracingBlocks: BracingBlockDef[] = [];
-  xBlocks.forEach(xb => {
-    yBlocks.forEach(yb => {
-      // Blocks are positioned around the perimeter of the deck
-      const isPerimeter =
-        xb.start === 0 || xb.end === widthBays ||
-        yb.start === 0 || yb.end === depthBays;
-      if (isPerimeter) {
+  xBlocks.forEach((xb, xIdx) => {
+    yBlocks.forEach((yb, yIdx) => {
+      if (bracedX.has(xIdx) || bracedY.has(yIdx)) {
         bracingBlocks.push({
           colStart: xb.start,
           colEnd: xb.end,
@@ -1588,21 +1673,13 @@ const calculateSingleDeck = (
     });
   });
 
-  // Helper to determine if a 1.2x1.2 cell is a ledger block.
-  // Each 2x2 bracing block contains 4 ledger blocks.
   const isCellBraced = (cellX: number, cellY: number): boolean => {
     const col = Math.round(cellX / 1.2);
     const row = Math.round(cellY / 1.2);
-
-    if (col < 0 || col >= widthBays || row < 0 || row >= depthBays) return false;
-
-    return bracingBlocks.some(b =>
-      col >= b.colStart && col < b.colEnd &&
-      row >= b.rowStart && row < b.rowEnd
-    );
+    if (col < 0 || col >= cols || row < 0 || row >= depthBays) return false;
+    return bracingBlocks.some(b => col >= b.colStart && col < b.colEnd && row >= b.rowStart && row < b.rowEnd);
   };
 
-  // Helper to determine if a row is a half row
   const isHalfRowAt = (cellY: number): boolean => {
     let currentY = 0;
     for (const h of rowHeights) {
@@ -1614,17 +1691,29 @@ const calculateSingleDeck = (
     return false;
   };
 
+  // --- LEDGER GENERATION LOGIC ---
+  // Ledger spacing vertically is 1m apart.
+  // When the foot size on respective level exceeds 1750mm a standard with a double cluster is used to double up on the ledger line.
+  const isCellLedgered = (cellX: number, cellY: number, wBays: number, dBays: number): boolean => {
+    const col = Math.round(cellX / 1.2);
+    const row = Math.round(cellY / 1.2);
+    if (col < 0 || col >= wBays || row < 0 || row >= dBays) return false;
+    const xBs = getBlockBays(wBays);
+    const yBs = getBlockBays(dBays);
+    const inX = xBs.some(b => col >= b.start && col < b.end);
+    const inY = yBs.some(b => row >= b.start && row < b.end);
+    return inX && inY;
+  };
+
+  const ledgerCounts = { blueBlue: 0, blueBlack: 0, blackBlack: 0 };
+  const ledgers: Ledger[] = [];
+  const processedConnections = new Set<string>();
+
   feet.forEach(f => {
     if (!f.assembly) return;
 
     const { x, y } = f.position;
-    const z = f.assembly.totalHeight; 
     
-    // Calculate number of ledger levels based on height
-    // Rule: If height >= 2m, add levels at every 1m interval.
-    // Always include the deck level ledger.
-    const levels = 1 + (z >= 2.0 ? Math.floor(z - 0.01) : 0);
-
     // Check Horizontal Connection (Right: x + 1.2)
     const neighborNextXKey = `${(x + 1.2).toFixed(3)},${y.toFixed(3)}`;
     
@@ -1635,10 +1724,10 @@ const calculateSingleDeck = (
         if (!processedConnections.has(connKey)) {
           processedConnections.add(connKey);
           
-          const cellAboveBraced = isCellBraced(x, y);
-          const cellBelowBraced = isCellBraced(x, y - 1.2);
-          
-          if (true) {
+          const cellAboveBraced = isCellLedgered(x, y, cols, depthBays);
+          const cellBelowBraced = isCellLedgered(x, y - 1.2, cols, depthBays);
+          const isPerimeter = y <= 0.05 || y >= deck.depth - 0.05;
+          if (isPerimeter || cellAboveBraced || cellBelowBraced) {
             const isHalf = isHalfRowAt(y);
             const isFirstColumn = Math.abs(x) < 0.05;
             
@@ -1658,15 +1747,12 @@ const calculateSingleDeck = (
             const elevations = getLedgerElevations(f, neighbor);
             if (colorType === 'blackBlack') ledgerCounts.blackBlack += elevations.length;
             else if (colorType === 'blueBlack') ledgerCounts.blueBlack += elevations.length;
-            else if (colorType === 'blueBlue') ledgerCounts.blueBlue += elevations.length;
+            else ledgerCounts.blueBlue += elevations.length;
 
-            elevations.forEach((ledgerElev, i) => {
-               const midX = x + 0.6;
-               const midY = y;
-               
+            elevations.forEach((elev, idx) => {
                ledgers.push({
-                  id: `LDG_H_${connKey}_${i}`,
-                  position: { x: midX, y: midY, z: ledgerElev },
+                  id: `FLAT_LDG_${connKey}_${idx}`,
+                  position: { x: x + 0.6, y, z: elev },
                   rotation: { x: 0, y: 0, z: Math.PI / 2 },
                   length: 1.2,
                   color: colorHex,
@@ -1688,10 +1774,10 @@ const calculateSingleDeck = (
         if (!processedConnections.has(connKey)) {
           processedConnections.add(connKey);
           
-          const cellRightBraced = isCellBraced(x, y);
-          const cellLeftBraced = isCellBraced(x - 1.2, y);
-          
-          if (true) {
+          const cellRightBraced = isCellLedgered(x, y, cols, depthBays);
+          const cellLeftBraced = isCellLedgered(x - 1.2, y, cols, depthBays);
+          const isPerimeter = x <= 0.05 || x >= deck.width - 0.05;
+          if (isPerimeter || cellRightBraced || cellLeftBraced) {
             const isHalf = isHalfRowAt(y);
             const isFirstColumn = Math.abs(x) < 0.05;
             
@@ -1711,15 +1797,12 @@ const calculateSingleDeck = (
             const elevations = getLedgerElevations(f, neighbor);
             if (colorType === 'blackBlack') ledgerCounts.blackBlack += elevations.length;
             else if (colorType === 'blueBlack') ledgerCounts.blueBlack += elevations.length;
-            else if (colorType === 'blueBlue') ledgerCounts.blueBlue += elevations.length;
+            else ledgerCounts.blueBlue += elevations.length;
             
-            elevations.forEach((ledgerElev, i) => {
-               const midX = x;
-               const midY = y + 0.6;
-               
+            elevations.forEach((elev, idx) => {
                ledgers.push({
-                  id: `LDG_V_${connKey}_${i}`,
-                  position: { x: midX, y: midY, z: ledgerElev },
+                  id: `FLAT_LDG_${connKey}_${idx}`,
+                  position: { x, y: y + 0.6, z: elev },
                   rotation: { x: Math.PI / 2, y: 0, z: 0 },
                   length: 1.2,
                   color: colorHex,
@@ -1732,7 +1815,7 @@ const calculateSingleDeck = (
     }
   });
 
-  // --- BRACING GENERATION LOGIC ---
+  // --- BRACING GENERATION LOGIC -----
   const braces: Brace[] = [];
 
   const addedBracesKeys = new Set<string>();
