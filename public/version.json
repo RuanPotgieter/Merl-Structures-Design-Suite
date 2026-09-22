@@ -1,0 +1,7 @@
+{
+  "version": "1.0.0",
+  "buildTimestamp": "2026-09-22T07:54:00.000Z",
+  "buildHash": "dev-local",
+  "channel": "production",
+  "notes": "Standard Stage CAD Engine with parametric Kwikstage support and 3D visualizer"
+}

@@ -26,7 +26,8 @@ import {
   ExternalLink,
   Sparkles,
   Calendar,
-  HardDrive
+  HardDrive,
+  CloudDownload
 } from 'lucide-react';
 
 interface ProjectStatsOverviewProps {
@@ -40,6 +41,7 @@ interface ProjectStatsOverviewProps {
   onAddDefaultDeck: (preset?: 'standard' | 'raking' | 'vip') => void;
   onSaveProject: () => void;
   onOpenNewProjectModal: () => void;
+  onOpenOtaModal?: () => void;
 }
 
 export const ProjectStatsOverview: React.FC<ProjectStatsOverviewProps> = ({
@@ -52,7 +54,8 @@ export const ProjectStatsOverview: React.FC<ProjectStatsOverviewProps> = ({
   onNavigateScreen,
   onAddDefaultDeck,
   onSaveProject,
-  onOpenNewProjectModal
+  onOpenNewProjectModal,
+  onOpenOtaModal
 }) => {
   // Form fields
   const [fileName, setFileName] = useState(currentProject?.fileName || '');
@@ -212,6 +215,17 @@ export const ProjectStatsOverview: React.FC<ProjectStatsOverviewProps> = ({
               <ClipboardList size={14} className="text-[#0284c7]" />
               BOM & Schedule
             </button>
+
+            {onOpenOtaModal && (
+              <button
+                onClick={onOpenOtaModal}
+                className="flex items-center gap-1.5 px-3.5 py-2 bg-[#f0f8ff] hover:bg-[#e0f2fe] border border-[#b8d4e3] hover:border-[#0284c7] text-[#0284c7] font-mono text-xs font-semibold rounded-lg shadow-xs transition-all"
+                title="Check for Netlify Over-The-Air updates and live sync"
+              >
+                <CloudDownload size={14} />
+                OTA Updates
+              </button>
+            )}
           </div>
         </div>
 

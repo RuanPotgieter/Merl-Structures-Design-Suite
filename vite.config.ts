@@ -6,6 +6,27 @@ import { VitePWA } from 'vite-plugin-pwa';
 
 export default defineConfig(({ mode }) => {
     const env = loadEnv(mode, '.', '');
+    const appVersion = '1.0.0';
+    const buildTimestamp = new Date().toISOString();
+    const buildHash = process.env.COMMIT_REF?.substring(0, 7) || process.env.DEPLOY_ID || Math.random().toString(36).substring(2, 9);
+
+    const netlifyVersionPlugin = {
+      name: 'netlify-version-generator',
+      generateBundle() {
+        this.emitFile({
+          type: 'asset',
+          fileName: 'version.json',
+          source: JSON.stringify({
+            version: appVersion,
+            buildTimestamp,
+            buildHash,
+            deployUrl: process.env.URL || null,
+            environment: process.env.CONTEXT || mode
+          }, null, 2)
+        });
+      }
+    };
+
     return {
       server: {
         port: 3000,
@@ -65,11 +86,15 @@ export default defineConfig(({ mode }) => {
             enabled: true,
             type: 'module',
           },
-        })
+        }),
+        netlifyVersionPlugin
       ],
       define: {
         'process.env.API_KEY': JSON.stringify(env.GEMINI_API_KEY),
-        'process.env.GEMINI_API_KEY': JSON.stringify(env.GEMINI_API_KEY)
+        'process.env.GEMINI_API_KEY': JSON.stringify(env.GEMINI_API_KEY),
+        '__APP_VERSION__': JSON.stringify(appVersion),
+        '__BUILD_TIMESTAMP__': JSON.stringify(buildTimestamp),
+        '__BUILD_HASH__': JSON.stringify(buildHash)
       },
       resolve: {
         alias: {

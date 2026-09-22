@@ -22,7 +22,8 @@ import {
   ArrowRight,
   ShieldCheck,
   FolderCheck,
-  Building2
+  Building2,
+  CloudDownload
 } from 'lucide-react';
 import { 
   getActiveProjectFromLocalStorage, 
@@ -36,6 +37,8 @@ import {
 import { ErrorBoundary } from './components/ErrorBoundary';
 import { ProjectStatsOverview } from './components/ProjectStatsOverview';
 import { NewProjectModal } from './components/NewProjectModal';
+import { OtaUpdateModal } from './components/OtaUpdateModal';
+import { checkForNetlifyUpdate } from './utils/otaManager';
 
 export const INITIAL_DECK: DeckConfig = {
   id: 'deck-1',
@@ -65,6 +68,8 @@ const App: React.FC = () => {
   const [isStorageModalOpen, setIsStorageModalOpen] = useState(false);
   const [storageModalMode, setStorageModalMode] = useState<ModalMode>('open');
   const [isNewProjectModalOpen, setIsNewProjectModalOpen] = useState(false);
+  const [isOtaModalOpen, setIsOtaModalOpen] = useState(false);
+  const [otaUpdateAvailable, setOtaUpdateAvailable] = useState(false);
 
   // Quick feedback toast
   const [toastMessage, setToastMessage] = useState<string | null>(null);
@@ -98,6 +103,30 @@ const App: React.FC = () => {
     }, 300);
     return () => clearTimeout(draftTimer);
   }, [decks, ramps, handrails, currentProject]);
+
+  // Background check for Netlify OTA updates on app launch and window focus
+  useEffect(() => {
+    let isSubscribed = true;
+    const checkUpdates = async () => {
+      try {
+        const res = await checkForNetlifyUpdate();
+        if (isSubscribed && res.updateAvailable) {
+          setOtaUpdateAvailable(true);
+        }
+      } catch {
+        // Silently skip if network unreachable
+      }
+    };
+
+    const bootTimer = setTimeout(checkUpdates, 2500);
+    window.addEventListener('focus', checkUpdates);
+
+    return () => {
+      isSubscribed = false;
+      clearTimeout(bootTimer);
+      window.removeEventListener('focus', checkUpdates);
+    };
+  }, []);
 
   // Initial Load: check URL share hash first, then auto-saved draft, then last saved project
   useEffect(() => {
@@ -430,6 +459,23 @@ const App: React.FC = () => {
             <span className="hidden md:inline">Projects</span>
           </button>
 
+          {/* Netlify OTA Updates */}
+          <button
+            onClick={() => setIsOtaModalOpen(true)}
+            className={`relative flex items-center gap-1.5 px-2.5 md:px-3 py-2 rounded-md text-xs font-mono font-medium transition-all ${
+              otaUpdateAvailable
+                ? 'bg-[#e0f2fe] text-[#0284c7] border border-[#0284c7] shadow-xs font-bold'
+                : 'bg-[#f0f8ff] hover:bg-[#e0f2fe] text-[#334155] hover:text-[#0284c7] border border-[#b8d4e3] hover:border-[#8ebdd4]'
+            }`}
+            title={otaUpdateAvailable ? "Netlify update available! Click to apply" : "Netlify Over-The-Air (OTA) Updates & Sync"}
+          >
+            <CloudDownload size={13} className={otaUpdateAvailable ? 'text-[#0284c7] animate-bounce' : 'text-[#0284c7]'} />
+            <span className="hidden sm:inline">OTA</span>
+            {otaUpdateAvailable && (
+              <span className="absolute -top-1 -right-1 w-2.5 h-2.5 bg-[#0284c7] rounded-full ring-2 ring-white animate-pulse" />
+            )}
+          </button>
+
           {/* Share Project */}
           <button
             onClick={() => openStorageModal('share')}
@@ -479,6 +525,7 @@ const App: React.FC = () => {
             onAddDefaultDeck={handleAddDefaultDeck}
             onSaveProject={handleQuickSave}
             onOpenNewProjectModal={() => setIsNewProjectModalOpen(true)}
+            onOpenOtaModal={() => setIsOtaModalOpen(true)}
           />
         )}
 
@@ -698,6 +745,16 @@ const App: React.FC = () => {
         isOpen={isNewProjectModalOpen}
         onClose={() => setIsNewProjectModalOpen(false)}
         onCreateProject={handleCreateNewProject}
+      />
+
+      {/* NETLIFY OVER-THE-AIR (OTA) UPDATES MODAL */}
+      <OtaUpdateModal
+        isOpen={isOtaModalOpen}
+        onClose={() => setIsOtaModalOpen(false)}
+        onUpdateApplied={() => {
+          setOtaUpdateAvailable(false);
+          showToast('Applying Netlify OTA update...');
+        }}
       />
 
     </div>
