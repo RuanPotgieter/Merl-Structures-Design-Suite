@@ -19,7 +19,10 @@ import {
   Edit3, 
   Sparkles,
   Layers,
-  ArrowRight
+  ArrowRight,
+  ShieldCheck,
+  FolderCheck,
+  Building2
 } from 'lucide-react';
 import { 
   getActiveProjectFromLocalStorage, 
@@ -31,6 +34,8 @@ import {
   clearDraftFromLocalStorage
 } from './utils/storage';
 import { ErrorBoundary } from './components/ErrorBoundary';
+import { ProjectStatsOverview } from './components/ProjectStatsOverview';
+import { NewProjectModal } from './components/NewProjectModal';
 
 export const INITIAL_DECK: DeckConfig = {
   id: 'deck-1',
@@ -47,7 +52,7 @@ export const INITIAL_DECK: DeckConfig = {
   }
 };
 
-export type AppScreen = 'specs' | 'model' | 'bom';
+export type AppScreen = 'stats' | 'specs' | 'model' | 'bom';
 
 const App: React.FC = () => {
   const [currentScreen, setCurrentScreen] = useState<AppScreen>('model');
@@ -56,9 +61,10 @@ const App: React.FC = () => {
   const [ramps, setRamps] = useState<RampConfig[]>([]);
   const [handrails, setHandrails] = useState<HandrailConfig[]>([]);
   
-  // Storage Modal
+  // Storage & Creation Modals
   const [isStorageModalOpen, setIsStorageModalOpen] = useState(false);
   const [storageModalMode, setStorageModalMode] = useState<ModalMode>('open');
+  const [isNewProjectModalOpen, setIsNewProjectModalOpen] = useState(false);
 
   // Quick feedback toast
   const [toastMessage, setToastMessage] = useState<string | null>(null);
@@ -135,9 +141,13 @@ const App: React.FC = () => {
 
   const handleLoadProject = (project: Project) => {
     setCurrentProject(project);
-    setDecks(project.decks && project.decks.length > 0 ? project.decks : [INITIAL_DECK]);
+    const loadedDecks = Array.isArray(project.decks) ? project.decks : [];
+    setDecks(loadedDecks);
     setRamps(project.ramps || []);
     setHandrails(project.handrails || []);
+    if (loadedDecks.length === 0) {
+      setCurrentScreen('stats');
+    }
   };
 
   const handleSaveProject = (project: Project) => {
@@ -146,17 +156,124 @@ const App: React.FC = () => {
   };
 
   const handleNewProject = () => {
-    if (decks.length > 1 || ramps.length > 0 || currentProject) {
-      if (!window.confirm('Start a new project? Any unsaved changes to the current project will be discarded.')) {
-        return;
-      }
-    }
+    setIsNewProjectModalOpen(true);
+  };
+
+  const handleCreateNewProject = (projectData: {
+    fileName: string;
+    siteName: string;
+    clientName: string;
+    location: string;
+    notes: string;
+    photos: any[];
+    startingTemplate: 'clean' | 'standard' | 'raking';
+  }) => {
     clearDraftFromLocalStorage();
-    setCurrentProject(null);
-    setDecks([INITIAL_DECK]);
+    const now = Date.now();
+    let initialDecks: DeckConfig[] = [];
+    if (projectData.startingTemplate === 'standard') {
+      initialDecks = [INITIAL_DECK];
+    } else if (projectData.startingTemplate === 'raking') {
+      initialDecks = [{
+        id: `deck_${now}`,
+        type: 'raking',
+        handrailType: 'standard',
+        width: 12.0,
+        depth: 10.0,
+        tiers: 5,
+        stepHeight: 0.2,
+        stepDepth: 1.0,
+        originX: 0,
+        originZ: 0,
+        orientation: 0,
+        terrain: {
+          deckHeight: 1.0,
+          groundOffsets: { origin: 0, widthEnd: 0, depthEnd: 0, diagonal: 0 }
+        }
+      }];
+    }
+
+    const newProj: Project = {
+      id: `proj_${now}`,
+      fileName: projectData.fileName,
+      siteName: projectData.siteName,
+      clientName: projectData.clientName,
+      location: projectData.location,
+      notes: projectData.notes,
+      photos: projectData.photos,
+      decks: initialDecks,
+      ramps: [],
+      handrails: [],
+      createdAt: now,
+      updatedAt: now
+    };
+
+    setCurrentProject(newProj);
+    setDecks(initialDecks);
     setRamps([]);
     setHandrails([]);
-    showToast('Started new project');
+    // User requested: "When selecting a new project it should start with a clean stats page and no 3d rendering."
+    setCurrentScreen('stats');
+    showToast(`Started new project: "${newProj.siteName}"`);
+  };
+
+  const handleAddDefaultDeck = (preset: 'standard' | 'raking' | 'vip' = 'standard') => {
+    const now = Date.now();
+    if (preset === 'raking') {
+      const rakingDeck: DeckConfig = {
+        id: `deck_${now}`,
+        type: 'raking',
+        handrailType: 'standard',
+        width: 12.0,
+        depth: 10.0,
+        tiers: 5,
+        stepHeight: 0.2,
+        stepDepth: 1.0,
+        originX: 0,
+        originZ: 0,
+        orientation: 0,
+        terrain: {
+          deckHeight: 1.0,
+          groundOffsets: { origin: 0, widthEnd: 0, depthEnd: 0, diagonal: 0 }
+        }
+      };
+      setDecks(prev => [...prev, rakingDeck]);
+      showToast('Added Raking Grandstand (12.0m × 10.0m)');
+    } else if (preset === 'vip') {
+      const vipDeck: DeckConfig = {
+        id: `deck_${now}`,
+        type: 'standard',
+        handrailType: 'standard',
+        width: 4.8,
+        depth: 3.6,
+        originX: 0,
+        originZ: 0,
+        orientation: 0,
+        terrain: {
+          deckHeight: 1.2,
+          groundOffsets: { origin: 0, widthEnd: 0, depthEnd: 0, diagonal: 0 }
+        }
+      };
+      setDecks(prev => [...prev, vipDeck]);
+      showToast('Added VIP Platform (4.8m × 3.6m)');
+    } else {
+      const stdDeck: DeckConfig = {
+        id: `deck_${now}`,
+        type: 'standard',
+        handrailType: 'standard',
+        width: 10.8,
+        depth: 10.8,
+        originX: 0,
+        originZ: 0,
+        orientation: 0,
+        terrain: {
+          deckHeight: 2.0,
+          groundOffsets: { origin: 0, widthEnd: 0, depthEnd: 0, diagonal: 0 }
+        }
+      };
+      setDecks(prev => [...prev, stdDeck]);
+      showToast('Added Standard Main Stage (10.8m × 10.8m)');
+    }
   };
 
   // Quick 1-click Save to Local Storage
@@ -164,8 +281,12 @@ const App: React.FC = () => {
     const now = Date.now();
     const projToSave: Project = {
       id: currentProject?.id || `proj_${now}`,
+      fileName: currentProject?.fileName,
       siteName: currentProject?.siteName || 'Festival Main Stage',
       clientName: currentProject?.clientName || 'Standard Client',
+      location: currentProject?.location,
+      notes: currentProject?.notes,
+      photos: currentProject?.photos || [],
       decks,
       ramps,
       handrails,
@@ -232,43 +353,56 @@ const App: React.FC = () => {
         </div>
 
         {/* Center: Multi-Screen Switcher (Tactile Segmented Pill) - Desktop Only */}
-        <nav className="hidden sm:flex items-center bg-[#e6f2f5] p-1 rounded-lg border border-[#a3c9db] shadow-inner absolute left-1/2 -translate-x-1/2">
+        <nav className="hidden sm:flex items-center bg-[#f0f8ff] p-1 rounded-lg border border-[#b8d4e3] shadow-xs absolute left-1/2 -translate-x-1/2">
+          <button
+            onClick={() => setCurrentScreen('stats')}
+            className={`flex items-center gap-1.5 px-3 py-2 rounded-md text-xs font-mono font-medium transition-all ${
+              currentScreen === 'stats'
+                ? 'bg-[#ffffff] text-[#0284c7] border border-[#8ebdd4] shadow-xs font-bold'
+                : 'text-[#475569] hover:text-[#0f172a] hover:bg-[#e0f2fe]/60 border border-transparent'
+            }`}
+            title="Clean Project Overview, Site Details & Photos"
+          >
+            <FolderCheck size={13} className={currentScreen === 'stats' ? 'text-[#0284c7]' : 'text-[#7e8b9f]'} />
+            <span>Project Stats</span>
+          </button>
+
           <button
             onClick={() => setCurrentScreen('specs')}
-            className={`flex items-center gap-1.5 px-3 py-2.5 rounded-md text-xs font-mono font-medium transition-all ${
+            className={`flex items-center gap-1.5 px-3 py-2 rounded-md text-xs font-mono font-medium transition-all ${
               currentScreen === 'specs'
-                ? 'bg-[#e0f2fe] text-cyan-600 border border-[#8ebdd4] shadow-sm font-semibold'
-                : 'text-[#475569] hover:text-[#0f172a] hover:bg-[#dcebf0] border border-transparent'
+                ? 'bg-[#ffffff] text-[#0284c7] border border-[#8ebdd4] shadow-xs font-bold'
+                : 'text-[#475569] hover:text-[#0f172a] hover:bg-[#e0f2fe]/60 border border-transparent'
             }`}
             title="Parametric Specifications Workbench"
           >
-            <Sliders size={13} className={currentScreen === 'specs' ? 'text-cyan-600' : 'text-[#7e8b9f]'} />
+            <Sliders size={13} className={currentScreen === 'specs' ? 'text-[#0284c7]' : 'text-[#7e8b9f]'} />
             <span>Specifications</span>
           </button>
 
           <button
             onClick={() => setCurrentScreen('model')}
-            className={`flex items-center gap-1.5 px-3 py-2.5 rounded-md text-xs font-mono font-medium transition-all ${
+            className={`flex items-center gap-1.5 px-3 py-2 rounded-md text-xs font-mono font-medium transition-all ${
               currentScreen === 'model'
-                ? 'bg-[#e0f2fe] text-cyan-600 border border-[#8ebdd4] shadow-sm font-semibold'
-                : 'text-[#475569] hover:text-[#0f172a] hover:bg-[#dcebf0] border border-transparent'
+                ? 'bg-[#ffffff] text-[#0284c7] border border-[#8ebdd4] shadow-xs font-bold'
+                : 'text-[#475569] hover:text-[#0f172a] hover:bg-[#e0f2fe]/60 border border-transparent'
             }`}
             title="Full-screen 3D CAD Viewport"
           >
-            <Box size={13} className={currentScreen === 'model' ? 'text-cyan-600' : 'text-[#7e8b9f]'} />
+            <Box size={13} className={currentScreen === 'model' ? 'text-[#0284c7]' : 'text-[#7e8b9f]'} />
             <span>3D Viewport</span>
           </button>
 
           <button
             onClick={() => setCurrentScreen('bom')}
-            className={`flex items-center gap-1.5 px-3 py-2.5 rounded-md text-xs font-mono font-medium transition-all ${
+            className={`flex items-center gap-1.5 px-3 py-2 rounded-md text-xs font-mono font-medium transition-all ${
               currentScreen === 'bom'
-                ? 'bg-[#e0f2fe] text-cyan-600 border border-[#8ebdd4] shadow-sm font-semibold'
-                : 'text-[#475569] hover:text-[#0f172a] hover:bg-[#dcebf0] border border-transparent'
+                ? 'bg-[#ffffff] text-[#0284c7] border border-[#8ebdd4] shadow-xs font-bold'
+                : 'text-[#475569] hover:text-[#0f172a] hover:bg-[#e0f2fe]/60 border border-transparent'
             }`}
             title="Parts Schedule & Structural Analysis"
           >
-            <ClipboardList size={13} className={currentScreen === 'bom' ? 'text-cyan-600' : 'text-[#7e8b9f]'} />
+            <ClipboardList size={13} className={currentScreen === 'bom' ? 'text-[#0284c7]' : 'text-[#7e8b9f]'} />
             <span>Schedule & BOM</span>
           </button>
         </nav>
@@ -279,7 +413,7 @@ const App: React.FC = () => {
           {/* Quick Save to Local Storage */}
           <button
             onClick={handleQuickSave}
-            className="flex items-center gap-1.5 px-3 py-2.5 bg-cyan-500 hover:bg-cyan-600 text-white rounded-md text-xs font-mono font-bold transition-all shadow-sm active:scale-95"
+            className="flex items-center gap-1.5 px-3 py-2 bg-[#0284c7] hover:bg-[#0369a1] text-white rounded-md text-xs font-mono font-bold transition-all shadow-xs active:scale-95"
             title="Quick save changes to local storage"
           >
             <Save size={13} />
@@ -289,44 +423,64 @@ const App: React.FC = () => {
           {/* Open Local Storage Projects */}
           <button
             onClick={() => openStorageModal('open')}
-            className="flex items-center gap-1.5 px-2.5 md:px-3 py-2.5 bg-[#e6f2f5] hover:bg-[#dcebf0] text-[#334155] hover:text-[#0f172a] border border-[#a3c9db] hover:border-[#8ebdd4] rounded-md text-xs font-mono font-medium transition-all"
+            className="flex items-center gap-1.5 px-2.5 md:px-3 py-2 bg-[#f0f8ff] hover:bg-[#e0f2fe] text-[#334155] hover:text-[#0284c7] border border-[#b8d4e3] hover:border-[#8ebdd4] rounded-md text-xs font-mono font-medium transition-all"
             title="Open project from storage or file"
           >
-            <FolderOpen size={13} className="text-[#475569]" />
+            <FolderOpen size={13} className="text-[#0284c7]" />
             <span className="hidden md:inline">Projects</span>
           </button>
 
           {/* Share Project */}
           <button
             onClick={() => openStorageModal('share')}
-            className="flex items-center gap-1.5 px-2.5 md:px-3 py-2.5 bg-[#e6f2f5] hover:bg-[#dcebf0] text-[#334155] hover:text-[#0f172a] border border-[#a3c9db] hover:border-[#8ebdd4] rounded-md text-xs font-mono font-medium transition-all"
+            className="flex items-center gap-1.5 px-2.5 md:px-3 py-2 bg-[#f0f8ff] hover:bg-[#e0f2fe] text-[#334155] hover:text-[#0284c7] border border-[#b8d4e3] hover:border-[#8ebdd4] rounded-md text-xs font-mono font-medium transition-all"
             title="Share project link or export CAD JSON"
           >
-            <Share2 size={13} className="text-[#475569]" />
+            <Share2 size={13} className="text-[#0284c7]" />
             <span className="hidden md:inline">Share</span>
           </button>
 
           {/* New Project */}
           <button
             onClick={handleNewProject}
-            className="p-1.5 md:px-2.5 md:py-2.5 bg-[#e6f2f5] hover:bg-[#dcebf0] text-[#475569] hover:text-[#0f172a] border border-[#a3c9db] hover:border-[#8ebdd4] rounded-md text-xs font-mono font-medium transition-all"
+            className="flex items-center gap-1 px-2.5 py-2 bg-[#e0f2fe] hover:bg-[#bae6fd] text-[#0284c7] border border-[#bae6fd] rounded-md text-xs font-mono font-bold transition-all shadow-xs"
             title="Create clean new project"
           >
-            <Plus size={14} />
+            <Plus size={14} className="text-[#0284c7]" />
+            <span className="hidden sm:inline">New</span>
           </button>
         </div>
       </header>
 
       {/* REFINED FLOATING TOAST */}
       {toastMessage && (
-        <div className="fixed top-16 left-1/2 -translate-x-1/2 z-50 flex items-center gap-2 px-4 py-2 bg-[#e6f2f5]/95 backdrop-blur-md border border-sky-300 text-[#0f172a] font-mono text-xs rounded-full shadow-2xl animate-in fade-in slide-in-from-top-2 duration-150">
-          <Check size={14} className="text-emerald-400" />
+        <div className="fixed top-16 left-1/2 -translate-x-1/2 z-50 flex items-center gap-2 px-4 py-2 bg-[#ffffff]/95 backdrop-blur-md border border-[#8ebdd4] text-[#0f172a] font-mono text-xs rounded-full shadow-lg animate-in fade-in slide-in-from-top-2 duration-150">
+          <Check size={14} className="text-emerald-500" />
           <span>{toastMessage}</span>
         </div>
       )}
 
       {/* MULTI-SCREEN MAIN WORKSPACE */}
       <main className="flex-1 relative overflow-hidden flex flex-col">
+
+        {/* SCREEN 0: CLEAN PROJECT STATS & SITE OVERVIEW */}
+        {currentScreen === 'stats' && (
+          <ProjectStatsOverview
+            currentProject={currentProject}
+            onUpdateProject={(updated) => {
+              setCurrentProject(updated);
+              showToast('Project details updated');
+            }}
+            calculationResult={calculationResult}
+            decks={decks}
+            ramps={ramps}
+            handrails={handrails}
+            onNavigateScreen={setCurrentScreen}
+            onAddDefaultDeck={handleAddDefaultDeck}
+            onSaveProject={handleQuickSave}
+            onOpenNewProjectModal={() => setIsNewProjectModalOpen(true)}
+          />
+        )}
 
         {/* SCREEN 1: FULL SPECIFICATIONS WORKBENCH */}
         {currentScreen === 'specs' && (
@@ -336,7 +490,7 @@ const App: React.FC = () => {
               {/* Studio screen helper banner */}
               <div className="mb-5 flex items-center justify-between p-3.5 bg-[#ffffff] border border-[#b8d4e3] rounded-xl">
                 <div className="flex items-center gap-3">
-                  <div className="w-8 h-8 rounded-lg bg-cyan-500/10 border border-cyan-500/20 flex items-center justify-center text-cyan-600">
+                  <div className="w-8 h-8 rounded-lg bg-[#e0f2fe] border border-[#bae6fd] flex items-center justify-center text-[#0284c7]">
                     <Sliders size={16} />
                   </div>
                   <div>
@@ -346,7 +500,7 @@ const App: React.FC = () => {
                 </div>
                 <button
                   onClick={() => setCurrentScreen('model')}
-                  className="flex items-center gap-1.5 px-3 py-2.5 bg-[#e6f2f5] hover:bg-cyan-500 text-cyan-600 hover:text-white border border-cyan-500/30 rounded-md text-xs font-mono font-semibold transition-all"
+                  className="flex items-center gap-1.5 px-3 py-2 bg-[#e0f2fe] hover:bg-[#0284c7] text-[#0284c7] hover:text-white border border-[#bae6fd] rounded-md text-xs font-mono font-semibold transition-all"
                 >
                   <span>3D Viewport</span>
                   <ArrowRight size={12} />
@@ -365,11 +519,11 @@ const App: React.FC = () => {
           </div>
         )}
 
-        {/* SCREEN 2: FULL 3D MODEL STUDIO */}
+        {/* SCREEN 2: FULL 3D MODEL STUDIO (ONLY ACTIVE/RENDERED WHEN IN 3D SCREEN) */}
         {currentScreen === 'model' && (
           <div className="w-full h-full relative overflow-hidden bg-[#ffffff]">
             <ErrorBoundary fallbackTitle="3D Stage CAD Viewport Restored">
-              <Suspense fallback={<div className="flex w-full h-full items-center justify-center bg-sky-100 text-cyan-500 font-mono text-sm tracking-wider">LOADING 3D ENGINE...</div>}>
+              <Suspense fallback={<div className="flex w-full h-full items-center justify-center bg-[#f0f8ff] text-[#0284c7] font-mono text-sm tracking-wider">LOADING 3D ENGINE...</div>}>
                 <DeckVisualizer3D 
                   data={calculationResult} 
                   onSelect={handleSelection} 
@@ -381,16 +535,16 @@ const App: React.FC = () => {
             </ErrorBoundary>
 
             {/* Decluttered Minimalist HUD Status Pill */}
-            <div className="absolute left-1/2 -translate-x-1/2 bottom-3 z-20 flex items-center gap-3 px-3 py-2 bg-white/80 backdrop-blur-md rounded-full border border-sky-200 shadow-md pointer-events-auto text-xs font-mono text-sky-900">
+            <div className="absolute left-1/2 -translate-x-1/2 bottom-3 z-20 flex items-center gap-3 px-3 py-2 bg-white/90 backdrop-blur-md rounded-full border border-[#bae6fd] shadow-md pointer-events-auto text-xs font-mono text-[#0f172a]">
               <div className="flex items-center gap-1.5">
-                <span className={`w-1.5 h-1.5 rounded-full ${calculationResult.status === 'SOLVED' ? 'bg-emerald-400' : 'bg-cyan-600'}`}></span>
-                <span className="font-semibold text-sky-900">
+                <span className={`w-1.5 h-1.5 rounded-full ${calculationResult.status === 'SOLVED' ? 'bg-emerald-500' : 'bg-[#0284c7]'}`}></span>
+                <span className="font-semibold text-[#0f172a]">
                   {calculationResult.status === 'SOLVED' ? 'Solved' : 'Review'}
                 </span>
               </div>
-              <span className="text-sky-300">|</span>
+              <span className="text-[#94a3b8]">|</span>
               <span>{calculationResult.totalArea.toFixed(1)} m²</span>
-              <span className="text-sky-300">|</span>
+              <span className="text-[#94a3b8]">|</span>
               <span>{calculationResult.calculatedFeetCount} Standards</span>
             </div>
 
@@ -398,32 +552,32 @@ const App: React.FC = () => {
             <div className="absolute right-3 top-3 z-20">
               <button
                 onClick={() => setIsLayersMenuOpen(!isLayersMenuOpen)}
-                className="flex items-center gap-1.5 px-2.5 py-2 bg-white/80 backdrop-blur-md border border-sky-200 rounded-md text-sm font-mono text-sky-800 hover:text-white hover:bg-sky-50 shadow-md transition-all"
+                className="flex items-center gap-1.5 px-2.5 py-2 bg-white/90 backdrop-blur-md border border-[#bae6fd] rounded-md text-xs font-mono text-[#334155] hover:text-[#0284c7] hover:bg-[#f0f8ff] shadow-sm transition-all"
                 title="Toggle Layers"
               >
-                <Layers size={10} className="text-cyan-600" />
+                <Layers size={12} className="text-[#0284c7]" />
                 <span>Layers</span>
               </button>
 
               {isLayersMenuOpen && (
-                <div className="absolute right-0 top-8 bg-white/95 backdrop-blur-md border border-sky-200 p-2.5 rounded-lg flex flex-col gap-2 w-44 shadow-2xl animate-in fade-in duration-150">
-                  <span className="text-xs font-mono font-bold text-sky-800 uppercase tracking-wider border-b border-sky-200 pb-1">
+                <div className="absolute right-0 top-8 bg-white/95 backdrop-blur-md border border-[#bae6fd] p-2.5 rounded-lg flex flex-col gap-2 w-44 shadow-2xl animate-in fade-in duration-150">
+                  <span className="text-xs font-mono font-bold text-[#0f172a] uppercase tracking-wider border-b border-[#e2e8f0] pb-1">
                     Scaffold Layers
                   </span>
-                  <label className="flex items-center gap-2 cursor-pointer text-sm font-mono text-sky-800 hover:text-cyan-600">
-                    <input type="checkbox" checked={layers.structure} onChange={e => setLayers({...layers, structure: e.target.checked})} className="rounded bg-sky-50 border-sky-300 text-cyan-500 accent-cyan-500 w-3 h-3" />
+                  <label className="flex items-center gap-2 cursor-pointer text-xs font-mono text-[#334155] hover:text-[#0284c7]">
+                    <input type="checkbox" checked={layers.structure} onChange={e => setLayers({...layers, structure: e.target.checked})} className="rounded bg-[#f0f8ff] border-[#8ebdd4] text-[#0284c7] accent-[#0284c7] w-3 h-3" />
                     <span>Leg Structure</span>
                   </label>
-                  <label className="flex items-center gap-2 cursor-pointer text-sm font-mono text-sky-800 hover:text-cyan-600">
-                    <input type="checkbox" checked={layers.ledgers} onChange={e => setLayers({...layers, ledgers: e.target.checked})} className="rounded bg-sky-50 border-sky-300 text-cyan-500 accent-cyan-500 w-3 h-3" />
+                  <label className="flex items-center gap-2 cursor-pointer text-xs font-mono text-[#334155] hover:text-[#0284c7]">
+                    <input type="checkbox" checked={layers.ledgers} onChange={e => setLayers({...layers, ledgers: e.target.checked})} className="rounded bg-[#f0f8ff] border-[#8ebdd4] text-[#0284c7] accent-[#0284c7] w-3 h-3" />
                     <span>Ledgers</span>
                   </label>
-                  <label className="flex items-center gap-2 cursor-pointer text-sm font-mono text-sky-800 hover:text-cyan-600">
-                    <input type="checkbox" checked={layers.terrain} onChange={e => setLayers({...layers, terrain: e.target.checked})} className="rounded bg-sky-50 border-sky-300 text-cyan-500 accent-cyan-500 w-3 h-3" />
+                  <label className="flex items-center gap-2 cursor-pointer text-xs font-mono text-[#334155] hover:text-[#0284c7]">
+                    <input type="checkbox" checked={layers.terrain} onChange={e => setLayers({...layers, terrain: e.target.checked})} className="rounded bg-[#f0f8ff] border-[#8ebdd4] text-[#0284c7] accent-[#0284c7] w-3 h-3" />
                     <span>Terrain Surface</span>
                   </label>
-                  <label className="flex items-center gap-2 cursor-pointer text-sm font-mono text-sky-800 hover:text-cyan-600">
-                    <input type="checkbox" checked={layers.rostrums} onChange={e => setLayers({...layers, rostrums: e.target.checked})} className="rounded bg-sky-50 border-sky-300 text-cyan-500 accent-cyan-500 w-3 h-3" />
+                  <label className="flex items-center gap-2 cursor-pointer text-xs font-mono text-[#334155] hover:text-[#0284c7]">
+                    <input type="checkbox" checked={layers.rostrums} onChange={e => setLayers({...layers, rostrums: e.target.checked})} className="rounded bg-[#f0f8ff] border-[#8ebdd4] text-[#0284c7] accent-[#0284c7] w-3 h-3" />
                     <span>Deck Rostrums</span>
                   </label>
                 </div>
@@ -432,36 +586,36 @@ const App: React.FC = () => {
           </div>
         )}
 
-        {/* SCREEN 4: BILL OF MATERIALS & STRUCTURAL ANALYSIS */}
+        {/* SCREEN 3: BILL OF MATERIALS & STRUCTURAL ANALYSIS */}
         {currentScreen === 'bom' && (
           <div className="w-full h-full overflow-y-auto bg-[#f0f8ff]">
             <div className="max-w-6xl mx-auto px-4 md:px-8 py-8 flex flex-col gap-6">
               
               <div className="flex flex-col lg:flex-row gap-6 items-start justify-between">
                 <div className="flex-1">
-                  <div className="inline-flex items-center gap-2 px-2.5 py-2 rounded-md bg-[#e6f2f5] border border-[#a3c9db] text-sm font-mono text-cyan-600 mb-2.5">
-                    <Boxes size={13} className="text-cyan-600" />
-                    PARTS SPECIFICATION SCHEDULE
+                  <div className="inline-flex items-center gap-2 px-2.5 py-2 rounded-md bg-[#e0f2fe] border border-[#bae6fd] text-xs font-mono text-[#0284c7] font-semibold mb-2.5">
+                    <ShieldCheck size={14} className="text-[#0284c7]" />
+                    STRUCTURAL INTEGRITY & BILL OF MATERIALS
                   </div>
                   <h2 className="text-xl md:text-2xl font-mono font-bold text-[#0f172a] tracking-tight mb-1">
-                    Project Parts Schedule
+                    Engineering Analysis & Parts Schedule
                   </h2>
-                  <p className="text-[#8b98ad] text-xs max-w-xl leading-relaxed">
-                    Automatic bill of materials generated from active CAD calculations. Component lengths and counts reflect real Kwikstage site rules.
+                  <p className="text-[#64748b] text-xs max-w-xl leading-relaxed">
+                    Parametric structural load analysis (total dead/live weight, 3D Center of Gravity, and axial safety margins) alongside site-ready Kwikstage component inventory.
                   </p>
                 </div>
                 <StatsPanel data={calculationResult} isValid={calculationResult.status === 'SOLVED'} />
               </div>
               
               <div className="bg-[#ffffff] rounded-xl overflow-hidden border border-[#b8d4e3] shadow-xl">
-                <div className="px-5 py-3.5 border-b border-[#b8d4e3] flex justify-between items-center bg-[#f8fbfd]">
+                <div className="px-5 py-3.5 border-b border-[#b8d4e3] flex justify-between items-center bg-[#f0f8ff]">
                   <h3 className="text-xs font-mono font-bold text-[#0f172a] uppercase tracking-wider flex items-center gap-2">
-                    <span className="w-1.5 h-1.5 bg-cyan-600 rounded-full"></span>
-                    Scaffold Component Inventory
+                    <span className="w-1.5 h-1.5 bg-[#0284c7] rounded-full"></span>
+                    Structural Analysis & Hardware Inventory
                   </h3>
                   <button 
                     onClick={() => window.print()} 
-                    className="px-3.5 py-2.5 bg-[#eef5f9] border border-[#8ebdd4] text-xs font-mono font-medium text-[#334155] hover:text-cyan-600 hover:border-cyan-600/40 transition-all rounded-md shadow-sm flex items-center gap-2"
+                    className="px-3.5 py-2 bg-[#ffffff] border border-[#8ebdd4] text-xs font-mono font-medium text-[#334155] hover:text-[#0284c7] hover:border-[#0284c7] transition-all rounded-md shadow-xs flex items-center gap-2"
                   >
                     Export Schedule / Print
                   </button>
@@ -475,12 +629,24 @@ const App: React.FC = () => {
       </main>
 
       {/* MOBILE BOTTOM NAVIGATION BAR */}
-      <nav className="sm:hidden shrink-0 flex items-center justify-around bg-[#ffffff] border-t border-[#b8d4e3] px-2 py-2 pb-safe z-50 shadow-[0_-4px_10px_rgba(0,0,0,0.2)]">
+      <nav className="sm:hidden shrink-0 flex items-center justify-around bg-[#ffffff] border-t border-[#b8d4e3] px-2 py-2 pb-safe z-50 shadow-[0_-4px_10px_rgba(0,0,0,0.06)]">
+        <button
+          onClick={() => setCurrentScreen('stats')}
+          className={`flex flex-col items-center gap-1 p-2 rounded-lg flex-1 transition-all ${
+            currentScreen === 'stats'
+              ? 'text-[#0284c7] bg-[#e0f2fe]'
+              : 'text-[#64748b] hover:text-[#475569]'
+          }`}
+        >
+          <FolderCheck size={18} />
+          <span className="text-xs font-mono font-medium">Stats</span>
+        </button>
+
         <button
           onClick={() => setCurrentScreen('specs')}
           className={`flex flex-col items-center gap-1 p-2 rounded-lg flex-1 transition-all ${
             currentScreen === 'specs'
-              ? 'text-cyan-600 bg-[#e6f2f5]'
+              ? 'text-[#0284c7] bg-[#e0f2fe]'
               : 'text-[#64748b] hover:text-[#475569]'
           }`}
         >
@@ -492,7 +658,7 @@ const App: React.FC = () => {
           onClick={() => setCurrentScreen('model')}
           className={`flex flex-col items-center gap-1 p-2 rounded-lg flex-1 transition-all ${
             currentScreen === 'model'
-              ? 'text-cyan-600 bg-[#e6f2f5]'
+              ? 'text-[#0284c7] bg-[#e0f2fe]'
               : 'text-[#64748b] hover:text-[#475569]'
           }`}
         >
@@ -504,7 +670,7 @@ const App: React.FC = () => {
           onClick={() => setCurrentScreen('bom')}
           className={`flex flex-col items-center gap-1 p-2 rounded-lg flex-1 transition-all ${
             currentScreen === 'bom'
-              ? 'text-cyan-600 bg-[#e6f2f5]'
+              ? 'text-[#0284c7] bg-[#e0f2fe]'
               : 'text-[#64748b] hover:text-[#475569]'
           }`}
         >
@@ -525,6 +691,13 @@ const App: React.FC = () => {
         decks={decks}
         ramps={ramps}
         handrails={handrails}
+      />
+
+      {/* DEDICATED NEW PROJECT CREATION MODAL */}
+      <NewProjectModal
+        isOpen={isNewProjectModalOpen}
+        onClose={() => setIsNewProjectModalOpen(false)}
+        onCreateProject={handleCreateNewProject}
       />
 
     </div>

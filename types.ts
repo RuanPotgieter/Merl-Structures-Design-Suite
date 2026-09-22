@@ -68,11 +68,23 @@ export interface HandrailConfig {
   type?: 'standard' | 'heavy-duty' | 'decorative';
 }
 
+export interface ProjectPhoto {
+  id: string;
+  name: string;
+  dataUrl: string;
+  size?: number;
+  uploadedAt: number;
+}
+
 export interface Project {
   id: string;
   driveFileId?: string;
+  fileName?: string;
   siteName: string;
   clientName: string;
+  location?: string;
+  photos?: ProjectPhoto[];
+  notes?: string;
   decks: DeckConfig[];
   ramps: RampConfig[];
   handrails: HandrailConfig[];

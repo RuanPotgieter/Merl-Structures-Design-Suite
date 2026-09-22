@@ -69,8 +69,10 @@ export const ProjectStorageModal: React.FC<ProjectStorageModalProps> = ({
 }) => {
   const [activeTab, setActiveTab] = useState<ModalMode>(initialMode);
   const [localProjects, setLocalProjects] = useState<Project[]>([]);
+  const [fileName, setFileName] = useState(currentProject?.fileName || '');
   const [siteName, setSiteName] = useState(currentProject?.siteName || 'Festival Main Stage');
   const [clientName, setClientName] = useState(currentProject?.clientName || 'Acme Events');
+  const [location, setLocation] = useState(currentProject?.location || '');
   const [copiedLink, setCopiedLink] = useState(false);
   const [copiedJson, setCopiedJson] = useState(false);
   const [saveSuccessNotice, setSaveSuccessNotice] = useState<string | null>(null);
@@ -90,8 +92,10 @@ export const ProjectStorageModal: React.FC<ProjectStorageModalProps> = ({
       setSaveSuccessNotice(null);
       setErrorMessage(null);
       if (currentProject) {
+        setFileName(currentProject.fileName || '');
         setSiteName(currentProject.siteName);
         setClientName(currentProject.clientName);
+        setLocation(currentProject.location || '');
       }
     }
   }, [isOpen, initialMode, currentProject]);
@@ -133,8 +137,12 @@ export const ProjectStorageModal: React.FC<ProjectStorageModalProps> = ({
       const now = Date.now();
       const projToSave: Project = {
         id: currentProject?.id || `proj_${now}`,
+        fileName: fileName.trim() || undefined,
         siteName: siteName.trim(),
         clientName: clientName.trim() || 'Standard Client',
+        location: location.trim() || undefined,
+        photos: currentProject?.photos || [],
+        notes: currentProject?.notes || '',
         decks,
         ramps,
         handrails,
@@ -175,8 +183,12 @@ export const ProjectStorageModal: React.FC<ProjectStorageModalProps> = ({
   const handleExportLocalFile = (proj?: Project) => {
     const target = proj || {
       id: currentProject?.id || `proj_${Date.now()}`,
+      fileName: fileName.trim() || undefined,
       siteName: siteName.trim() || 'Scaffold_Project',
       clientName: clientName.trim() || 'Client',
+      location: location.trim() || undefined,
+      photos: currentProject?.photos || [],
+      notes: currentProject?.notes || '',
       decks,
       ramps,
       handrails,
@@ -342,6 +354,19 @@ export const ProjectStorageModal: React.FC<ProjectStorageModalProps> = ({
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 pt-2">
                 <div className="flex flex-col gap-1.5">
                   <label className="text-xs font-mono font-bold text-[#475569] uppercase tracking-wider">
+                    File Name
+                  </label>
+                  <input
+                    type="text"
+                    value={fileName}
+                    onChange={e => setFileName(e.target.value)}
+                    placeholder="e.g. Waterfront_Festival_2026.cadproj"
+                    className="bg-[#dcebf0] border border-[#a3c9db] text-[#0f172a] font-mono text-xs rounded px-3 py-2 outline-none focus:border-cyan-600 focus:ring-1 focus:ring-cyan-600/50 transition-all shadow-inner"
+                  />
+                </div>
+
+                <div className="flex flex-col gap-1.5">
+                  <label className="text-xs font-mono font-bold text-[#475569] uppercase tracking-wider">
                     Site / Venue Name
                   </label>
                   <input
@@ -362,6 +387,19 @@ export const ProjectStorageModal: React.FC<ProjectStorageModalProps> = ({
                     value={clientName}
                     onChange={e => setClientName(e.target.value)}
                     placeholder="e.g. Acme Productions Ltd"
+                    className="bg-[#dcebf0] border border-[#a3c9db] text-[#0f172a] font-mono text-xs rounded px-3 py-2 outline-none focus:border-cyan-600 focus:ring-1 focus:ring-cyan-600/50 transition-all shadow-inner"
+                  />
+                </div>
+
+                <div className="flex flex-col gap-1.5">
+                  <label className="text-xs font-mono font-bold text-[#475569] uppercase tracking-wider">
+                    Site Location
+                  </label>
+                  <input
+                    type="text"
+                    value={location}
+                    onChange={e => setLocation(e.target.value)}
+                    placeholder="e.g. Pier 4, Cape Town Harbour"
                     className="bg-[#dcebf0] border border-[#a3c9db] text-[#0f172a] font-mono text-xs rounded px-3 py-2 outline-none focus:border-cyan-600 focus:ring-1 focus:ring-cyan-600/50 transition-all shadow-inner"
                   />
                 </div>

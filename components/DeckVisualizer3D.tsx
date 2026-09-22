@@ -1,6 +1,6 @@
 // @ts-nocheck
 /// <reference types="@react-three/fiber" />
-import React, { useMemo, useRef, useLayoutEffect } from 'react';
+import React, { useState, useEffect, useMemo, useRef, useLayoutEffect } from 'react';
 import * as THREE from 'three';
 import { Canvas, ReactThreeFiber, ThreeElements } from '@react-three/fiber';
 
@@ -18,6 +18,7 @@ import {
   SOLE_BOARD_THICKNESS 
 } from '../constants';
 import { getGroundYAt } from '../utils/deckLogic';
+import { QuickActionMenu } from './QuickActionMenu';
 
 // --- Professional CAD Materials with Crisp Metallic Sheen ---
 
@@ -818,6 +819,8 @@ export interface DeckVisualizer3DProps {
   selectionId: string | null;
   layers: { structure: boolean; ledgers: boolean; terrain: boolean; rostrums: boolean };
   active?: boolean;
+  snapToGrid?: boolean;
+  onToggleSnapToGrid?: (enabled: boolean) => void;
 }
 
 export const RampPlateGroup: React.FC<{ rampPlates: RampPlate[] }> = ({ rampPlates }) => {
@@ -846,9 +849,115 @@ export const RampPlateGroup: React.FC<{ rampPlates: RampPlate[] }> = ({ rampPlat
   );
 };
 
-export const DeckVisualizer3D: React.FC<DeckVisualizer3DProps> = React.memo(({ data, layers, active = true }) => {
+export const DeckVisualizer3D: React.FC<DeckVisualizer3DProps> = React.memo(({ 
+  data, 
+  layers, 
+  active = true,
+  snapToGrid: propSnapToGrid,
+  onToggleSnapToGrid: propOnToggleSnapToGrid 
+}) => {
   const BG_COLOR = "#ffffff"; // Clean architectural light grey viewport background
   const controlsRef = useRef<any>(null);
+  const feedbackTimerRef = useRef<any>(null);
+
+  // Quick Action States
+  const [isWireframe, setIsWireframe] = useState<boolean>(false);
+  const [localSnapToGrid, setLocalSnapToGrid] = useState<boolean>(true);
+  const snapToGrid = propSnapToGrid !== undefined ? propSnapToGrid : localSnapToGrid;
+  const [isAutoRotate, setIsAutoRotate] = useState<boolean>(false);
+  const [isShadows, setIsShadows] = useState<boolean>(true);
+  const [showAxes, setShowAxes] = useState<boolean>(true);
+  const [quickFeedback, setQuickFeedback] = useState<string | null>(null);
+
+  const triggerQuickFeedback = (msg: string) => {
+    setQuickFeedback(msg);
+    if (feedbackTimerRef.current) clearTimeout(feedbackTimerRef.current);
+    feedbackTimerRef.current = setTimeout(() => {
+      setQuickFeedback(null);
+    }, 1800);
+  };
+
+  const handleToggleSnapToGrid = () => {
+    const nextVal = !snapToGrid;
+    if (propOnToggleSnapToGrid) {
+      propOnToggleSnapToGrid(nextVal);
+    } else {
+      setLocalSnapToGrid(nextVal);
+    }
+    triggerQuickFeedback(`Snap to Grid: ${nextVal ? 'ON (1.2m module)' : 'OFF'}`);
+  };
+
+  // Synchronize wireframe mode across all component materials
+  const ALL_PBR_MATERIALS = useMemo(() => [
+    MAT_SILVER,
+    MAT_GREY,
+    MAT_BRACE,
+    MAT_RED,
+    MAT_BASE_JACK,
+    MAT_SWIVEL_CONNECTOR,
+    MAT_BASE_JACK_HANDLE,
+    MAT_HANDRAIL_UPRIGHT,
+    MAT_HANDRAIL_GREEN,
+    MAT_ROSTRUM,
+    MAT_TERRAIN,
+    MAT_SOLE_BOARD,
+    MAT_RAMP_PLATE,
+    MAT_LEDGER_BLUE,
+    MAT_LEDGER_GREEN,
+    MAT_LEDGER_BLACK
+  ], []);
+
+  useLayoutEffect(() => {
+    ALL_PBR_MATERIALS.forEach(mat => {
+      if (mat) {
+        mat.wireframe = isWireframe;
+        mat.needsUpdate = true;
+      }
+    });
+  }, [isWireframe, ALL_PBR_MATERIALS]);
+
+  const handleCameraReset = () => {
+    if (!controlsRef.current) return;
+    const controls = controlsRef.current;
+    const deckH = Number(data.terrain?.deckHeight) || 0;
+    const target = new THREE.Vector3(0, deckH, 0);
+    controls.target.copy(target);
+
+    const distance = Math.max(12, Math.max(data.dimensions?.width || 10, data.dimensions?.depth || 10) * 1.5 + 5);
+    controls.object.position.set(-distance, distance, -distance);
+    controls.object.zoom = 1;
+    controls.object.updateProjectionMatrix();
+    controls.update();
+
+    triggerQuickFeedback('Camera Reset to ISO Perspective');
+  };
+
+  // Fast Keyboard Shortcuts for 3D Modeler
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.target instanceof HTMLInputElement || e.target instanceof HTMLTextAreaElement) {
+        return;
+      }
+      if (e.key === 'w' || e.key === 'W') {
+        setIsWireframe(prev => {
+          triggerQuickFeedback(`Wireframe Mode: ${!prev ? 'ON' : 'OFF'}`);
+          return !prev;
+        });
+      } else if (e.key === 'g' || e.key === 'G') {
+        handleToggleSnapToGrid();
+      } else if (e.key === 'r' || e.key === 'R') {
+        handleCameraReset();
+      } else if (e.key === 't' || e.key === 'T') {
+        setIsAutoRotate(prev => {
+          triggerQuickFeedback(`Turntable: ${!prev ? 'ON' : 'OFF'}`);
+          return !prev;
+        });
+      }
+    };
+
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, [snapToGrid, propOnToggleSnapToGrid, data]);
 
   const setView = (view: string) => {
     if (!controlsRef.current) return;
@@ -889,58 +998,101 @@ export const DeckVisualizer3D: React.FC<DeckVisualizer3DProps> = React.memo(({ d
 
   return (
     <div className="w-full h-full bg-[#ffffff] overflow-hidden relative touch-none">
-      {/* Decluttered Minimalist CAD Camera View Toolbar with Small Icons */}
-      <div className="absolute top-3 left-3 z-20 flex items-center gap-0.5 p-1 bg-white/80 backdrop-blur-md rounded-md border border-sky-200 shadow-md">
-        <div className="flex items-center gap-1 px-1.5 py-2 border-r border-sky-200 text-sky-700">
-          <Compass size={10} className="text-cyan-600" />
+      {/* Decluttered Minimalist CAD Camera View Toolbar with Light Powder Blue Palette */}
+      <div className="absolute top-3 left-3 z-20 flex items-center gap-0.5 p-1 bg-white/90 backdrop-blur-md rounded-lg border border-[#b8d4e3] shadow-md">
+        <div className="flex items-center gap-1 px-1.5 py-1.5 border-r border-[#b8d4e3] text-[#0284c7]">
+          <Compass size={12} className="text-[#0284c7]" />
         </div>
         <button 
           onClick={() => setView('iso')} 
-          className="flex items-center gap-1 px-1.5 py-2 rounded text-xs font-mono font-medium text-sky-800 hover:text-cyan-600 hover:bg-cyan-600/15 transition-all"
+          className="flex items-center gap-1 px-2 py-1.5 rounded text-xs font-mono font-bold text-[#334155] hover:text-[#0284c7] hover:bg-[#e0f2fe] transition-all"
           title="Isometric CAD Perspective"
         >
-          <Box size={10} className="text-cyan-600" />
+          <Box size={11} className="text-[#0284c7]" />
           <span>ISO</span>
         </button>
         <button 
           onClick={() => setView('top')} 
-          className="flex items-center gap-1 px-1.5 py-2 rounded text-xs font-mono text-sky-900 hover:text-cyan-600 hover:bg-cyan-600/15 transition-all"
+          className="flex items-center gap-1 px-2 py-1.5 rounded text-xs font-mono text-[#334155] hover:text-[#0284c7] hover:bg-[#e0f2fe] transition-all"
           title="Top Plan View"
         >
-          <Square size={9} />
+          <Square size={10} />
           <span>TOP</span>
         </button>
         <button 
           onClick={() => setView('front')} 
-          className="flex items-center gap-1 px-1.5 py-2 rounded text-xs font-mono text-sky-900 hover:text-cyan-600 hover:bg-cyan-600/15 transition-all"
+          className="flex items-center gap-1 px-2 py-1.5 rounded text-xs font-mono text-[#334155] hover:text-[#0284c7] hover:bg-[#e0f2fe] transition-all"
           title="Front Elevation"
         >
-          <Eye size={9} />
+          <Eye size={10} />
           <span>FRT</span>
         </button>
         <button 
           onClick={() => setView('right')} 
-          className="flex items-center gap-1 px-1.5 py-2 rounded text-xs font-mono text-sky-900 hover:text-cyan-600 hover:bg-cyan-600/15 transition-all"
+          className="flex items-center gap-1 px-2 py-1.5 rounded text-xs font-mono text-[#334155] hover:text-[#0284c7] hover:bg-[#e0f2fe] transition-all"
           title="Side View (Right)"
         >
-          <Columns size={9} />
+          <Columns size={10} />
           <span>SIDE</span>
         </button>
         <button 
           onClick={() => setView('left')} 
-          className="px-1.5 py-2 rounded text-xs font-mono text-sky-700 hover:text-cyan-600 hover:bg-cyan-600/15 transition-all"
+          className="px-2 py-1.5 rounded text-xs font-mono text-[#334155] hover:text-[#0284c7] hover:bg-[#e0f2fe] transition-all"
           title="Left Elevation"
         >
           LFT
         </button>
         <button 
           onClick={() => setView('bottom')} 
-          className="px-1.5 py-2 rounded text-xs font-mono text-sky-700 hover:text-cyan-600 hover:bg-cyan-600/15 transition-all"
+          className="px-2 py-1.5 rounded text-xs font-mono text-[#334155] hover:text-[#0284c7] hover:bg-[#e0f2fe] transition-all"
           title="Bottom Underneath View"
         >
           BTM
         </button>
       </div>
+
+      {/* Floating Quick Action Menu (One-click toggles for Wireframe, Snap to Grid, Camera Reset, Turntable, Shadows) */}
+      <QuickActionMenu
+        isWireframe={isWireframe}
+        onToggleWireframe={() => {
+          setIsWireframe(prev => {
+            triggerQuickFeedback(`Wireframe Mode: ${!prev ? 'ON' : 'OFF'}`);
+            return !prev;
+          });
+        }}
+        snapToGrid={snapToGrid}
+        onToggleSnapToGrid={handleToggleSnapToGrid}
+        onCameraReset={handleCameraReset}
+        isAutoRotate={isAutoRotate}
+        onToggleAutoRotate={() => {
+          setIsAutoRotate(prev => {
+            triggerQuickFeedback(`Turntable: ${!prev ? 'ON' : 'OFF'}`);
+            return !prev;
+          });
+        }}
+        isShadows={isShadows}
+        onToggleShadows={() => {
+          setIsShadows(prev => {
+            triggerQuickFeedback(`Ground Shadows: ${!prev ? 'ON' : 'OFF'}`);
+            return !prev;
+          });
+        }}
+        showAxes={showAxes}
+        onToggleAxes={() => {
+          setShowAxes(prev => {
+            triggerQuickFeedback(`Origin Benchmark: ${!prev ? 'Visible' : 'Hidden'}`);
+            return !prev;
+          });
+        }}
+      />
+
+      {/* Floating Quick Action Feedback Toast */}
+      {quickFeedback && (
+        <div className="absolute top-3 left-1/2 -translate-x-1/2 z-30 pointer-events-none flex items-center gap-1.5 px-3 py-1.5 bg-[#ffffff]/95 backdrop-blur-md border border-[#0284c7] text-[#0284c7] rounded-full shadow-lg font-mono text-xs font-semibold animate-in fade-in slide-in-from-top-1 duration-150">
+          <span className="w-1.5 h-1.5 rounded-full bg-[#0284c7] animate-pulse"></span>
+          <span>{quickFeedback}</span>
+        </div>
+      )}
 
       <Canvas 
         frameloop={active ? "always" : "never"}
@@ -979,35 +1131,37 @@ export const DeckVisualizer3D: React.FC<DeckVisualizer3DProps> = React.memo(({ d
           color="#ffffff" 
         />
         
-        {/* Crisp Architectural Grid Ground Plane on Light Grey */}
+        {/* Architectural Grid Ground Plane - Highlights 1.2m modular bays when snap to grid is active */}
         <Grid 
           position={[0, -0.005, 0]} 
           args={[120, 120]} 
           cellSize={1.2} 
-          cellThickness={0.8} 
-          cellColor="#cbd5e1" 
-          sectionSize={4.8} 
-          sectionThickness={1.2} 
-          sectionColor="#94a3b8" 
-          fadeDistance={85} 
-          fadeStrength={1.5} 
+          cellThickness={snapToGrid ? 1.4 : 0.8} 
+          cellColor={snapToGrid ? "#7dd3fc" : "#cbd5e1"} 
+          sectionSize={2.4} 
+          sectionThickness={snapToGrid ? 2.0 : 1.2} 
+          sectionColor={snapToGrid ? "#0284c7" : "#94a3b8"} 
+          fadeDistance={95} 
+          fadeStrength={1.2} 
           infiniteGrid 
         />
 
         {/* Soft Ground Shadow Rendering Under Structure */}
-        <ContactShadows 
-          position={[0, -0.002, 0]} 
-          opacity={0.35} 
-          scale={Math.max(data.dimensions.width, data.dimensions.depth) * 2 + 12} 
-          blur={2.0} 
-          far={20} 
-          resolution={512} 
-          frames={1}
-          color="#000000" 
-        />
+        {isShadows && (
+          <ContactShadows 
+            position={[0, -0.002, 0]} 
+            opacity={0.35} 
+            scale={Math.max(data.dimensions.width, data.dimensions.depth) * 2 + 12} 
+            blur={2.0} 
+            far={20} 
+            resolution={512} 
+            frames={1}
+            color="#000000" 
+          />
+        )}
         
         <group>
-          <OriginMarker terrain={data.terrain} dimensions={data.dimensions} />
+          {showAxes && <OriginMarker terrain={data.terrain} dimensions={data.dimensions} />}
           
           {layers.terrain && <TerrainMesh terrain={data.terrain} dimensions={data.dimensions} rostrums={data.rostrums} />}
           
@@ -1026,6 +1180,8 @@ export const DeckVisualizer3D: React.FC<DeckVisualizer3DProps> = React.memo(({ d
           minDistance={1} 
           maxDistance={3000} 
           target={[0, Number(data.terrain?.deckHeight) || 0, 0]}
+          autoRotate={isAutoRotate}
+          autoRotateSpeed={1.5}
         />
         
         {/* Orientation Axis Gizmo in Top-Right Corner */}

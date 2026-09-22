@@ -34,7 +34,7 @@ export const StatsPanel: React.FC<StatsPanelProps> = ({ data, isValid }) => {
 
           <div className="flex flex-col gap-3">
             {/* Standard Rostrums */}
-            <div className="flex justify-between items-end bg-[#161a25] p-3 rounded-lg border border-[#a3c9db]">
+            <div className="flex justify-between items-end bg-[#f0f8ff] p-3 rounded-lg border border-[#a3c9db]">
               <div className="flex flex-col">
                 <span className="text-xs text-[#475569] font-mono font-medium uppercase tracking-wide">
                   Full Deck Panels (1.2m × 2.4m)
@@ -47,7 +47,7 @@ export const StatsPanel: React.FC<StatsPanelProps> = ({ data, isValid }) => {
             </div>
 
             {/* Half Rostrums */}
-            <div className="flex justify-between items-end bg-[#161a25] p-3 rounded-lg border border-[#a3c9db]">
+            <div className="flex justify-between items-end bg-[#f0f8ff] p-3 rounded-lg border border-[#a3c9db]">
               <div className="flex flex-col">
                 <span className="text-xs text-[#475569] font-mono font-medium uppercase tracking-wide">
                   Half Deck Panels (1.2m × 1.2m)
@@ -105,10 +105,10 @@ const StatCard: React.FC<{ label: string; value: string | number; unit: string; 
   highlight,
 }) => (
   <div
-    className={`p-3 rounded-lg border flex flex-col justify-between transition-all duration-200 shadow-sm ${
+    className={`p-3 rounded-lg border flex flex-col justify-between transition-all duration-200 shadow-xs ${
       highlight
-        ? 'bg-[#181c27] border-cyan-600/40 text-cyan-700'
-        : 'bg-[#ffffff] border-[#242938] hover:border-[#353d52]'
+        ? 'bg-[#e0f2fe] border-[#7dd3fc] text-[#0369a1]'
+        : 'bg-[#ffffff] border-[#b8d4e3] hover:border-[#7dd3fc]'
     }`}
   >
     <div className="text-xs text-[#475569] uppercase tracking-wider mb-1 truncate font-mono font-medium">

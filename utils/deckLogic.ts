@@ -8,7 +8,8 @@ import {
   Ledger,
   Brace,
   Upright,
-  Handrail
+  Handrail,
+  SwivelConnector
 } from '../types';
 import { 
   STANDARD_HEIGHTS_MM, 
@@ -187,6 +188,152 @@ export const getLedgerElevations = (f1: Foot, f2: Foot): number[] => {
   
   return Array.from(new Set(selected)).sort((a, b) => a - b);
 };
+
+/**
+ * Strict Safety Constraint: Bracing and swivel connectors must NEVER protrude any rostrum at any point.
+ * Checks each brace against the rostrum underside (accounting for deck thickness 50mm, tube radius 24mm,
+ * and safety clearance). Clamps heights safely below the rostrum underside or omits braces if clearance
+ * is physically impossible.
+ */
+export function enforceBracingRostrumSafety(
+  braces: Brace[],
+  rostrums: Rostrum[],
+  swivelConnectors?: SwivelConnector[]
+): { braces: Brace[]; swivelConnectors?: SwivelConnector[] } {
+  if (!braces || braces.length === 0 || !rostrums || rostrums.length === 0) {
+    return { braces: braces || [], swivelConnectors };
+  }
+
+  const getCeiling = (x: number, y: number): number => {
+    let minCeil = Infinity;
+    for (let i = 0; i < rostrums.length; i++) {
+      const r = rostrums[i];
+      if (r.isRiserFascia) continue;
+
+      const hw = (r.width || 1.2) / 2 + 0.08;
+      const hd = (r.depth || 1.2) / 2 + 0.08;
+
+      let lx = x - r.center.x;
+      let ly = y - r.center.y;
+
+      if (r.rotationY) {
+        const cos = Math.cos(-r.rotationY);
+        const sin = Math.sin(-r.rotationY);
+        const rx = lx * cos - ly * sin;
+        const ry = lx * sin + ly * cos;
+        lx = rx;
+        ly = ry;
+      }
+
+      if (Math.abs(lx) <= hw && Math.abs(ly) <= hd) {
+        let elev = r.startElevation ?? 2.0;
+        if (r.isRamp && r.endElevation !== undefined) {
+          const t = Math.max(0, Math.min(1, (ly + hd) / (2 * hd)));
+          elev = r.startElevation + t * (r.endElevation - r.startElevation);
+        }
+        // Safety clearance: deck thickness (50mm) + tube radius (24mm) + 26mm air gap = 100mm below deck top
+        const ceil = elev - DECK_THICKNESS - 0.05;
+        if (ceil < minCeil) minCeil = ceil;
+      }
+    }
+    return minCeil;
+  };
+
+  const safeBraces: Brace[] = [];
+
+  for (const b of braces) {
+    let p1 = { ...b.startPos };
+    let p2 = { ...b.endPos };
+
+    // 1. Clamp endpoints to their local ceilings
+    const c1 = getCeiling(p1.x, p1.y);
+    const c2 = getCeiling(p2.x, p2.y);
+
+    if (p1.z > c1) p1.z = c1;
+    if (p2.z > c2) p2.z = c2;
+
+    // 2. Iterate to ensure intermediate points along the diagonal never exceed ceiling
+    for (let iter = 0; iter < 4; iter++) {
+      let maxExcess = 0;
+      let maxT = 0;
+      const steps = 30;
+      for (let s = 1; s < steps; s++) {
+        const t = s / steps;
+        const x = p1.x + t * (p2.x - p1.x);
+        const y = p1.y + t * (p2.y - p1.y);
+        const z = p1.z + t * (p2.z - p1.z);
+        const ceil = getCeiling(x, y);
+        if (z > ceil) {
+          const excess = z - ceil;
+          if (excess > maxExcess) {
+            maxExcess = excess;
+            maxT = t;
+          }
+        }
+      }
+
+      if (maxExcess <= 0.0001) break;
+
+      // Lower the higher end or both ends
+      if (p1.z > p2.z) {
+        const factor = Math.max(0.1, 1 - maxT);
+        p1.z -= (maxExcess / factor);
+        if (p1.z < p2.z) {
+          const avg = (p1.z + p2.z) / 2;
+          p1.z = avg;
+          p2.z = avg;
+        }
+      } else {
+        const factor = Math.max(0.1, maxT);
+        p2.z -= (maxExcess / factor);
+        if (p2.z < p1.z) {
+          const avg = (p1.z + p2.z) / 2;
+          p1.z = avg;
+          p2.z = avg;
+        }
+      }
+    }
+
+    // Final verification: ensure no point along the brace exceeds ceiling + 0.001
+    let stillCollides = false;
+    for (let s = 0; s <= 30; s++) {
+      const t = s / 30;
+      const x = p1.x + t * (p2.x - p1.x);
+      const y = p1.y + t * (p2.y - p1.y);
+      const z = p1.z + t * (p2.z - p1.z);
+      const ceil = getCeiling(x, y);
+      if (z > ceil + 0.001) {
+        stillCollides = true;
+        break;
+      }
+    }
+
+    // Check minimum height and valid vertical diagonal span
+    const zSpan = Math.abs(p1.z - p2.z);
+    if (!stillCollides && zSpan >= 0.2) {
+      safeBraces.push({
+        ...b,
+        startPos: p1,
+        endPos: p2
+      });
+    }
+  }
+
+  let safeSwivels: SwivelConnector[] | undefined = undefined;
+  if (swivelConnectors) {
+    safeSwivels = [];
+    for (const sc of swivelConnectors) {
+      const c = getCeiling(sc.position.x, sc.position.y);
+      let pos = { ...sc.position };
+      if (pos.z > c - 0.02) {
+        pos.z = c - 0.02;
+      }
+      safeSwivels.push({ ...sc, position: pos });
+    }
+  }
+
+  return { braces: safeBraces, swivelConnectors: safeSwivels };
+}
 
 const calculateRakingDeck = (
   deck: import('../types').DeckConfig,
@@ -529,7 +676,7 @@ const calculateRakingDeck = (
           if (!processedConnections.has(connKey)) {
             const cellRightBraced = isCellLedgered(x, y, widthBays, depthBays);
             const cellLeftBraced = isCellLedgered(x - 1.2, y, widthBays, depthBays);
-            const isPerimeter = x <= 0.05 || x >= deck.width - 0.05;
+            const isPerimeter = x <= 0.05 || x >= Number(deck.width) - 0.05;
             if (isPerimeter || cellRightBraced || cellLeftBraced) {
               processedConnections.add(connKey);
               
@@ -657,14 +804,25 @@ const calculateRakingDeck = (
   };
 
   // Node helper: bottom node near basejack, top node near deck elevation
-  const getStandardNodes = (x: number, y: number) => {
+  // Bracing should never protrude any rostrum at any point
+  const getStandardNodes = (x: number, y: number, isForwardDepthBrace = false) => {
     const f = feetMap.get(`${x.toFixed(3)},${y.toFixed(3)}`) || 
               feet.find(ft => Math.abs(ft.position.x - x) < 0.05 && Math.abs(ft.position.y - y) < 0.05);
     const ground = f ? f.groundHeight : 0;
     const target = f ? f.targetElevation : 2.0;
+
+    let effectiveTarget = target;
+    if (isForwardDepthBrace) {
+      const yBack = yCoords[yCoords.length - 1];
+      if (Math.abs(y - yBack) > 0.05) {
+        // Intermediate row: standard supports the tier behind it, but the tier IN FRONT is 1 step lower!
+        effectiveTarget = target - stepHeight;
+      }
+    }
+
     return {
       bottomElev: ground + 0.15,
-      topElev: Math.max(ground + 0.5, target - DECK_THICKNESS)
+      topElev: effectiveTarget - 0.15
     };
   };
 
@@ -754,13 +912,14 @@ const calculateRakingDeck = (
       let k = 0;
       while (k < rowsFromHigh.length - 1) {
         const highRow = rowsFromHigh[k];
-        const highNodes = getStandardNodes(xCoord, highRow.y);
+        // Forward depth brace running forward into lower tier: use isForwardDepthBrace = true
+        const highNodes = getStandardNodes(xCoord, highRow.y, true);
 
         if (k + 2 < rowsFromHigh.length) {
           // Span 2 bays (3 feet): from top of foot k to bottom of foot k+2
           const lowRow = rowsFromHigh[k + 2];
           const midRow = rowsFromHigh[k + 1];
-          const lowNodes = getStandardNodes(xCoord, lowRow.y);
+          const lowNodes = getStandardNodes(xCoord, lowRow.y, false);
           
           // Raking deck height depends on the current tier.
           // We apply layers if the specific brace's height span is large (> 3m roughly, mapped via maxH).
@@ -1096,6 +1255,8 @@ const calculateRakingDeck = (
     }
   }
 
+  const safeBracing = enforceBracingRostrumSafety(braces, rostrums, swivelConnectors);
+
   return {
     rostrums,
     feet,
@@ -1104,10 +1265,10 @@ const calculateRakingDeck = (
     halfRostrumsCount: rostrums.filter(r => r.width <= 1.8 && !r.isRiserFascia && !r.isStepBox).length,
     ledgerCounts,
     ledgers,
-    braces,
+    braces: safeBracing.braces,
     uprights,
     handrails,
-    swivelConnectors,
+    swivelConnectors: safeBracing.swivelConnectors,
     totalArea: exactWidth * exactDepth,
     dimensions: { width: exactWidth, depth: exactDepth },
     terrain,
@@ -1308,7 +1469,7 @@ const calculateSingleDeck = (
       bottomRight: { x: exactWidth, y: 0 }
     };
     
-    const c = corners[rc.corner];
+    const c = corners[rc.corner as keyof typeof corners] || corners.bottomLeft;
     
     let startX = 0;
     let startY = 0;
@@ -1726,7 +1887,7 @@ const calculateSingleDeck = (
           
           const cellAboveBraced = isCellLedgered(x, y, cols, depthBays);
           const cellBelowBraced = isCellLedgered(x, y - 1.2, cols, depthBays);
-          const isPerimeter = y <= 0.05 || y >= deck.depth - 0.05;
+          const isPerimeter = y <= 0.05 || y >= Number(deck.depth) - 0.05;
           if (isPerimeter || cellAboveBraced || cellBelowBraced) {
             const isHalf = isHalfRowAt(y);
             const isFirstColumn = Math.abs(x) < 0.05;
@@ -1776,7 +1937,7 @@ const calculateSingleDeck = (
           
           const cellRightBraced = isCellLedgered(x, y, cols, depthBays);
           const cellLeftBraced = isCellLedgered(x - 1.2, y, cols, depthBays);
-          const isPerimeter = x <= 0.05 || x >= deck.width - 0.05;
+          const isPerimeter = x <= 0.05 || x >= Number(deck.width) - 0.05;
           if (isPerimeter || cellRightBraced || cellLeftBraced) {
             const isHalf = isHalfRowAt(y);
             const isFirstColumn = Math.abs(x) < 0.05;
@@ -2401,7 +2562,7 @@ const calculateSingleDeck = (
     }).length,
     ledgerCounts,
     ledgers,
-    braces,
+    braces: enforceBracingRostrumSafety(braces, rostrums).braces,
     uprights,
     handrails,
     totalArea: rostrums.reduce((acc, r) => {
@@ -2620,6 +2781,13 @@ export const calculateDecks = (
     if (singleResult.status !== 'SOLVED') result.status = singleResult.status;
     result.errors.push(...singleResult.errors);
   });
+
+  // Strict Safety Constraint: Bracing and swivels must NEVER protrude any rostrum at any point
+  const safeBracing = enforceBracingRostrumSafety(result.braces, result.rostrums, result.swivelConnectors);
+  result.braces = safeBracing.braces;
+  if (safeBracing.swivelConnectors) {
+    result.swivelConnectors = safeBracing.swivelConnectors;
+  }
 
   let minX = Infinity, maxX = -Infinity, minY = Infinity, maxY = -Infinity;
   result.feet.forEach(f => {

@@ -14,8 +14,11 @@ export interface DraftProjectState {
 
 export interface StorageProjectSummary {
   id: string;
+  fileName?: string;
   siteName: string;
   clientName: string;
+  location?: string;
+  photoCount?: number;
   updatedAt: number;
   createdAt: number;
   deckCount: number;
@@ -176,6 +179,45 @@ export function clearDraftFromLocalStorage(): void {
 }
 
 /**
+ * Compress an uploaded photo into a clean, optimized base64 Data URL (max 1280px dimension, high-quality JPEG)
+ */
+export async function compressPhotoFile(file: File, maxDimension = 1280, quality = 0.8): Promise<string> {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onload = (e) => {
+      const img = new Image();
+      img.onload = () => {
+        let { width, height } = img;
+        if (width > maxDimension || height > maxDimension) {
+          if (width > height) {
+            height = Math.round((height * maxDimension) / width);
+            width = maxDimension;
+          } else {
+            width = Math.round((width * maxDimension) / height);
+            height = maxDimension;
+          }
+        }
+        const canvas = document.createElement('canvas');
+        canvas.width = width;
+        canvas.height = height;
+        const ctx = canvas.getContext('2d');
+        if (!ctx) {
+          resolve(e.target?.result as string);
+          return;
+        }
+        ctx.drawImage(img, 0, 0, width, height);
+        const compressed = canvas.toDataURL('image/jpeg', quality);
+        resolve(compressed);
+      };
+      img.onerror = () => reject(new Error('Failed to process image'));
+      img.src = e.target?.result as string;
+    };
+    reader.onerror = () => reject(new Error('Failed to read file'));
+    reader.readAsDataURL(file);
+  });
+}
+
+/**
  * Export project as a downloadable .cadproj / .json file
  */
 export function exportProjectToFile(project: Project) {
@@ -183,10 +225,16 @@ export function exportProjectToFile(project: Project) {
     const jsonStr = JSON.stringify(project, null, 2);
     const blob = new Blob([jsonStr], { type: 'application/json' });
     const url = URL.createObjectURL(blob);
-    const safeName = (project.siteName || 'scaffold_project').replace(/[^a-z0-9_-]/gi, '_');
+    let downloadName = project.fileName ? project.fileName.trim() : '';
+    if (!downloadName) {
+      const safeName = (project.siteName || 'scaffold_project').replace(/[^a-z0-9_-]/gi, '_');
+      downloadName = `${safeName}.cadproj`;
+    } else if (!downloadName.endsWith('.cadproj') && !downloadName.endsWith('.json')) {
+      downloadName = `${downloadName}.cadproj`;
+    }
     const a = document.createElement('a');
     a.href = url;
-    a.download = `${safeName}.cadproj`;
+    a.download = downloadName;
     document.body.appendChild(a);
     a.click();
     document.body.removeChild(a);
@@ -213,8 +261,12 @@ export function importProjectFromFile(file: File): Promise<Project> {
         }
         const project: Project = {
           id: parsed.id || `proj_${Date.now()}`,
+          fileName: parsed.fileName || file.name,
           siteName: parsed.siteName || file.name.replace(/\.[^/.]+$/, ''),
           clientName: parsed.clientName || 'Imported Client',
+          location: parsed.location || '',
+          photos: Array.isArray(parsed.photos) ? parsed.photos : [],
+          notes: parsed.notes || '',
           decks: parsed.decks,
           ramps: parsed.ramps || [],
           handrails: parsed.handrails || [],
