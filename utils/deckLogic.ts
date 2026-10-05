@@ -27,12 +27,17 @@ export const getGroundYAt = (x: number, y: number, terrain: TerrainConfig, width
   const v = depth ? Math.max(0, Math.min(1, y / depth)) : 0;
   
   const offsets = terrain?.groundOffsets || {} as any;
-  const h00 = 0; 
-  const h10 = -(Number(offsets.widthEnd) || 0);  
-  const h01 = -(Number(offsets.depthEnd) || 0);  
-  const h11 = -(Number(offsets.diagonal) || 0); 
+  // Origin is at bottom right (u=1, v=0)
+  const hBottomRight = -(Number(offsets.origin) || 0);
+  const hBottomLeft = -(Number(offsets.widthEnd) || 0);
+  const hTopRight = -(Number(offsets.depthEnd) || 0);
+  const hTopLeft = -(Number(offsets.diagonal) || 0);
 
-  return (1 - u) * (1 - v) * h00 + u * (1 - v) * h10 + (1 - u) * v * h01 + u * v * h11;
+  // u=0 is Left, u=1 is Right; v=0 is Bottom, v=1 is Top
+  return (1 - u) * (1 - v) * hBottomLeft 
+       + u * (1 - v) * hBottomRight 
+       + (1 - u) * v * hTopLeft 
+       + u * v * hTopRight;
 };
 
 /**
@@ -1255,6 +1260,210 @@ const calculateRakingDeck = (
     }
   }
 
+  // Generate ramps attached to raking deck
+  const rampConfigs: import('../types').RampConfig[] = rawRampConfigs.map(r => ({
+    ...r,
+    offset: Math.round((Number(r.offset) || 0) / 1.2) * 1.2,
+    width: Number(r.width) || 1.2,
+    length: Number(r.length) || 2.4,
+  }));
+
+  rampConfigs.forEach(rc => {
+    const offsetVal = Math.max(0, Number(rc.offset) || 0);
+    const widthVal = Number(rc.width) || 1.2;
+    const lengthVal = Number(rc.length) || 2.4;
+    const rampCols = Math.max(1, Math.round(widthVal / 1.2));
+    const exactRampWidth = rampCols * 1.2;
+
+    let startX = 0;
+    let startY = 0;
+
+    if (rc.side === 'bottom') {
+      startY = 0;
+      if (rc.corner === 'bottomRight' || rc.corner === 'topRight') {
+        startX = exactWidth - offsetVal - exactRampWidth;
+      } else {
+        startX = offsetVal;
+      }
+    } else if (rc.side === 'top') {
+      startY = exactDepth;
+      if (rc.corner === 'bottomRight' || rc.corner === 'topRight') {
+        startX = exactWidth - offsetVal - exactRampWidth;
+      } else {
+        startX = offsetVal;
+      }
+    } else if (rc.side === 'right') {
+      startX = exactWidth;
+      if (rc.corner === 'bottomRight' || rc.corner === 'bottomLeft') {
+        startY = offsetVal;
+      } else {
+        startY = exactDepth - offsetVal - exactRampWidth;
+      }
+    } else if (rc.side === 'left') {
+      startX = 0;
+      if (rc.corner === 'bottomRight' || rc.corner === 'bottomLeft') {
+        startY = offsetVal;
+      } else {
+        startY = exactDepth - offsetVal - exactRampWidth;
+      }
+    }
+
+    const rampRowHeights: number[] = [];
+    let remLen = lengthVal;
+    while (remLen >= 2.4 - 0.05) {
+      rampRowHeights.push(2.4);
+      remLen -= 2.4;
+    }
+    if (remLen >= 1.2 - 0.05) {
+      rampRowHeights.push(1.2);
+      remLen -= 1.2;
+    } else if (remLen > 0.1) {
+      rampRowHeights.push(remLen);
+    }
+    const exactRampLength = rampRowHeights.reduce((s, h) => s + h, 0);
+
+    let currentElev = stepHeight;
+    if (rc.side === 'top') {
+      currentElev = tiers * stepHeight;
+    } else if (rc.side === 'bottom') {
+      currentElev = stepHeight;
+    } else {
+      const midY = startY + exactRampWidth / 2;
+      const tierIndex = Math.min(tiers - 1, Math.max(0, Math.floor(midY / stepDepth)));
+      currentElev = (tierIndex + 1) * stepHeight;
+    }
+
+    let farCenterX = 0;
+    let farCenterY = 0;
+    if (rc.side === 'bottom') {
+      farCenterX = startX + exactRampWidth / 2;
+      farCenterY = -exactRampLength;
+    } else if (rc.side === 'top') {
+      farCenterX = startX + exactRampWidth / 2;
+      farCenterY = exactDepth + exactRampLength;
+    } else if (rc.side === 'left') {
+      farCenterX = -exactRampLength;
+      farCenterY = startY + exactRampWidth / 2;
+    } else if (rc.side === 'right') {
+      farCenterX = exactWidth + exactRampLength;
+      farCenterY = startY + exactRampWidth / 2;
+    }
+
+    const farEndElev = getGroundYAt(farCenterX, farCenterY, terrain, exactWidth, exactDepth);
+    const drop = currentElev - farEndElev;
+    const slopeAngle = exactRampLength > 0 ? (Math.atan2(drop, exactRampLength) * 180) / Math.PI : 0;
+
+    let currentRampY = 0;
+    for (let rr = 0; rr < rampRowHeights.length; rr++) {
+      const rHeight = rampRowHeights[rr];
+      let currentRampX = exactRampWidth;
+      let remainingWidth = exactRampWidth;
+      let cc = 0;
+
+      while (remainingWidth >= 0.1) {
+        let cWidth = 1.2;
+        if (Math.abs(rHeight - 1.2) < 0.1) {
+          if (remainingWidth >= 2.4 - 0.05) cWidth = 2.4;
+          else {
+            cWidth = 1.2;
+            if (remainingWidth < 1.2 - 0.05) cWidth = remainingWidth;
+          }
+        } else {
+          cWidth = 1.2;
+          if (remainingWidth < 1.2 - 0.05) cWidth = remainingWidth;
+        }
+
+        const xEnd = currentRampX;
+        const xStart = currentRampX - cWidth;
+
+        let rTopLeft = { x: 0, y: 0 };
+        let rBottomRight = { x: 0, y: 0 };
+
+        if (rc.side === 'bottom') {
+          rTopLeft = { x: startX + xEnd, y: startY - currentRampY };
+          rBottomRight = { x: startX + xStart, y: startY - currentRampY - rHeight };
+        } else if (rc.side === 'top') {
+          rTopLeft = { x: startX + xEnd, y: startY + currentRampY + rHeight };
+          rBottomRight = { x: startX + xStart, y: startY + currentRampY };
+        } else if (rc.side === 'left') {
+          rTopLeft = { x: startX - currentRampY, y: startY + xEnd };
+          rBottomRight = { x: startX - currentRampY - rHeight, y: startY + xStart };
+        } else if (rc.side === 'right') {
+          rTopLeft = { x: startX + currentRampY + rHeight, y: startY + xEnd };
+          rBottomRight = { x: startX + currentRampY, y: startY + xStart };
+        }
+
+        const startElev = currentElev - (currentRampY / exactRampLength) * drop;
+        const endElev = currentElev - ((currentRampY + rHeight) / exactRampLength) * drop;
+
+        rostrums.push({
+          id: `RAMP_${rc.id}_S${rr}_${cc}`,
+          gridRow: rr,
+          gridCol: cc,
+          topLeft: rTopLeft,
+          bottomRight: rBottomRight,
+          center: { x: (rTopLeft.x + rBottomRight.x) / 2, y: (rTopLeft.y + rBottomRight.y) / 2 },
+          width: Math.abs(rBottomRight.x - rTopLeft.x),
+          depth: Math.abs(rBottomRight.y - rTopLeft.y),
+          rotationY: 0,
+          isRamp: true,
+          slope: slopeAngle,
+          side: rc.side,
+          startElevation: startElev,
+          endElevation: endElev,
+          rampMaxRows: rampRowHeights.length,
+        });
+
+        const pts = [
+          { x: rTopLeft.x, y: rTopLeft.y },
+          { x: rTopLeft.x, y: rBottomRight.y },
+          { x: rBottomRight.x, y: rTopLeft.y },
+          { x: rBottomRight.x, y: rBottomRight.y },
+        ];
+        pts.forEach(corner => {
+          registerFoot(corner.x, corner.y, (startElev + endElev) / 2);
+        });
+
+        currentRampX -= cWidth;
+        remainingWidth -= cWidth;
+        cc++;
+      }
+      currentRampY += rHeight;
+    }
+
+    let currentPos = 0;
+    while (currentPos < exactRampWidth - 0.05) {
+      let pWidth = exactRampWidth - currentPos >= 2.4 - 0.05 ? 2.4 : 1.2;
+      let px = 0, py = 0, rot = 0;
+      let depth = 0.6;
+      if (rc.side === 'bottom') {
+        py = startY - exactRampLength - depth / 2;
+        px = startX + exactRampWidth - currentPos - pWidth / 2;
+        rot = 0;
+      } else if (rc.side === 'top') {
+        py = startY + exactRampLength + depth / 2;
+        px = startX + exactRampWidth - currentPos - pWidth / 2;
+        rot = 0;
+      } else if (rc.side === 'left') {
+        px = startX - exactRampLength - depth / 2;
+        py = startY + exactRampWidth - currentPos - pWidth / 2;
+        rot = Math.PI / 2;
+      } else if (rc.side === 'right') {
+        px = startX + exactRampLength + depth / 2;
+        py = startY + exactRampWidth - currentPos - pWidth / 2;
+        rot = Math.PI / 2;
+      }
+      rampPlates.push({
+        id: `RAMP_PLATE_${rc.id}_${currentPos}`,
+        position: { x: px, y: py, z: farEndElev },
+        width: pWidth,
+        depth: depth,
+        rotation: rot,
+      });
+      currentPos += pWidth;
+    }
+  });
+
   const safeBracing = enforceBracingRostrumSafety(braces, rostrums, swivelConnectors);
 
   return {
@@ -1268,6 +1477,7 @@ const calculateRakingDeck = (
     braces: safeBracing.braces,
     uprights,
     handrails,
+    rampPlates,
     swivelConnectors: safeBracing.swivelConnectors,
     totalArea: exactWidth * exactDepth,
     dimensions: { width: exactWidth, depth: exactDepth },
@@ -1469,31 +1679,49 @@ const calculateSingleDeck = (
       bottomRight: { x: exactWidth, y: 0 }
     };
     
-    const c = corners[rc.corner as keyof typeof corners] || corners.bottomLeft;
-    
-    let startX = 0;
-    let startY = 0;
-    
-    const offsetVal = Number(rc.offset) || 0;
-    const widthVal = Number(rc.width) || 0;
-    const lengthVal = Number(rc.length) || 0;
+    const offsetVal = Math.max(0, Number(rc.offset) || 0);
+    const widthVal = Number(rc.width) || 1.2;
+    const lengthVal = Number(rc.length) || 2.4;
 
-    if (rc.side === 'bottom') {
-      startX = rc.corner === 'bottomLeft' || rc.corner === 'topLeft' ? c.x + offsetVal : c.x - offsetVal - widthVal;
-      startY = 0;
-    } else if (rc.side === 'top') {
-      startX = rc.corner === 'bottomLeft' || rc.corner === 'topLeft' ? c.x + offsetVal : c.x - offsetVal - widthVal;
-      startY = exactDepth;
-    } else if (rc.side === 'left') {
-      startX = 0;
-      startY = rc.corner === 'bottomLeft' || rc.corner === 'bottomRight' ? c.y + offsetVal : c.y - offsetVal - widthVal;
-    } else if (rc.side === 'right') {
-      startX = exactWidth;
-      startY = rc.corner === 'bottomLeft' || rc.corner === 'bottomRight' ? c.y + offsetVal : c.y - offsetVal - widthVal;
-    }
-    
     const rampCols = Math.max(1, Math.round(widthVal / 1.2));
     const exactRampWidth = rampCols * 1.2;
+
+    let startX = 0;
+    let startY = 0;
+
+    if (rc.side === 'bottom') {
+      startY = 0;
+      if (rc.corner === 'bottomRight' || rc.corner === 'topRight') {
+        // Origin / right corner: offset shifts leftwards away from bottom right corner
+        startX = exactWidth - offsetVal - exactRampWidth;
+      } else {
+        // Left corner: offset shifts rightwards
+        startX = offsetVal;
+      }
+    } else if (rc.side === 'top') {
+      startY = exactDepth;
+      if (rc.corner === 'bottomRight' || rc.corner === 'topRight') {
+        startX = exactWidth - offsetVal - exactRampWidth;
+      } else {
+        startX = offsetVal;
+      }
+    } else if (rc.side === 'right') {
+      startX = exactWidth;
+      if (rc.corner === 'bottomRight' || rc.corner === 'bottomLeft') {
+        // Origin / bottom corner: offset shifts upwards
+        startY = offsetVal;
+      } else {
+        // Top corner: offset shifts downwards
+        startY = exactDepth - offsetVal - exactRampWidth;
+      }
+    } else if (rc.side === 'left') {
+      startX = 0;
+      if (rc.corner === 'bottomRight' || rc.corner === 'bottomLeft') {
+        startY = offsetVal;
+      } else {
+        startY = exactDepth - offsetVal - exactRampWidth;
+      }
+    }
     
     const rampRowHeights: number[] = [];
     let remLen = lengthVal;
@@ -2565,6 +2793,7 @@ const calculateSingleDeck = (
     braces: enforceBracingRostrumSafety(braces, rostrums).braces,
     uprights,
     handrails,
+    rampPlates,
     totalArea: rostrums.reduce((acc, r) => {
       const w = Math.abs(r.bottomRight.x - r.topLeft.x);
       const d = Math.abs(r.bottomRight.y - r.topLeft.y);
@@ -2767,6 +2996,18 @@ export const calculateDecks = (
           ...sc,
           id: `${deck.id}_${sc.id}`,
           position: transform3D(sc.position)
+        });
+      });
+    }
+
+    if (singleResult.rampPlates && singleResult.rampPlates.length > 0) {
+      if (!result.rampPlates) result.rampPlates = [];
+      singleResult.rampPlates.forEach(rp => {
+        result.rampPlates.push({
+          ...rp,
+          id: `${deck.id}_${rp.id}`,
+          position: transform3D(rp.position),
+          rotation: rp.rotation + rad
         });
       });
     }

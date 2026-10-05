@@ -104,122 +104,133 @@ const CadNumberInput: React.FC<{
   );
 });
 
-// Compact numerical slider paired with inline CAD dimension input
+// Architectural Numerical Input with Increment/Decrement Buttons on the sides (Default 1.2m increments)
 const CadDimensionField: React.FC<{
   label: string;
   value: number | '';
   onChange: (v: number | '') => void;
-  min: number;
-  max: number;
+  min?: number;
+  max?: number;
   step?: number;
   unit?: string;
   tooltip?: string;
-}> = React.memo(({ label, value, onChange, min, max, step = 0.1, unit = 'm', tooltip }) => {
-  const [localValue, setLocalValue] = useState<number | ''>(value);
-  const throttleTimerRef = React.useRef<any>(null);
-  const lastDispatchedRef = React.useRef<number | ''>(value);
+}> = React.memo(({ label, value, onChange, min, max, step = 1.2, unit = 'm', tooltip }) => {
+  const [localValue, setLocalValue] = useState<string>(value === '' ? '' : value.toString());
+  const isFocusedRef = React.useRef(false);
 
   React.useEffect(() => {
-    setLocalValue(value);
-    lastDispatchedRef.current = value;
+    if (!isFocusedRef.current) {
+      setLocalValue(value === '' ? '' : value.toString());
+    }
   }, [value]);
 
-  const dispatchUpdate = (val: number | '') => {
-    if (throttleTimerRef.current) {
-      clearTimeout(throttleTimerRef.current);
+  const commitValue = (val: number | '') => {
+    if (val === '') {
+      onChange('');
+      return;
     }
-    throttleTimerRef.current = setTimeout(() => {
-      if (val !== lastDispatchedRef.current) {
-        lastDispatchedRef.current = val;
-        onChange(val);
-      }
-    }, 45);
+    let clamped = val;
+    if (min !== undefined && clamped < min) clamped = min;
+    if (max !== undefined && clamped > max) clamped = max;
+    clamped = Math.round(clamped * 1000) / 1000;
+    setLocalValue(clamped.toString());
+    onChange(clamped);
   };
 
-  const commitImmediate = (val: number | '') => {
-    if (throttleTimerRef.current) {
-      clearTimeout(throttleTimerRef.current);
-    }
-    if (val !== lastDispatchedRef.current) {
-      lastDispatchedRef.current = val;
-      onChange(val);
-    }
-  };
-
-  const handleSliderChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const val = parseFloat(e.target.value);
-    setLocalValue(val);
-    dispatchUpdate(val);
+  const handleStep = (direction: 1 | -1) => {
+    const currentNum = value === '' ? (min !== undefined ? min : 0) : Number(value);
+    const effectiveStep = step !== undefined ? step : 1.2;
+    const nextVal = currentNum + direction * effectiveStep;
+    commitValue(nextVal);
   };
 
   const handleInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const raw = e.target.value;
-    if (raw.trim() === '') {
-      setLocalValue('');
-      dispatchUpdate('');
+    setLocalValue(e.target.value);
+  };
+
+  const handleInputBlur = () => {
+    isFocusedRef.current = false;
+    const trimmed = localValue.trim();
+    if (trimmed === '') {
+      commitValue('');
       return;
     }
-    const parsed = parseFloat(raw);
+    const parsed = parseFloat(trimmed);
     if (!isNaN(parsed)) {
-      setLocalValue(parsed);
-      dispatchUpdate(parsed);
+      commitValue(parsed);
+    } else {
+      setLocalValue(value === '' ? '' : value.toString());
     }
   };
 
-  const numericValue = localValue === '' ? min : Number(localValue);
-
   return (
-    <div className="flex flex-col gap-1.5 p-2.5 rounded-lg bg-[#141721] border border-[#242937]">
+    <div className="flex flex-col gap-1.5 p-2.5 rounded-lg bg-[#ffffff] border border-[#b8d4e3] shadow-sm">
       <div className="flex justify-between items-center">
-        <label className="text-sm font-mono font-medium text-[#475569] flex items-center gap-1.5">
+        <label className="text-xs font-mono font-bold text-[#1e293b] flex items-center gap-1.5">
           {label}
         </label>
-        <span className="text-xs font-mono text-cyan-600 font-bold">
-          {localValue !== '' ? Number(localValue).toFixed(1) : '--'} {unit}
-        </span>
+        <div className="flex items-center gap-1.5">
+          <span className="text-[11px] font-mono text-[#0284c7] font-bold bg-[#e0f2fe] px-2 py-0.5 rounded border border-[#bae6fd]">
+            {localValue !== '' ? `${localValue} ${unit}` : '--'}
+          </span>
+          <span className="text-[10px] font-mono text-[#64748b] bg-[#f1f5f9] px-1.5 py-0.5 rounded border border-[#e2e8f0]">
+            ±{step}{unit}
+          </span>
+        </div>
       </div>
 
-      <div className="flex items-center gap-2.5">
-        {/* Compact Slider with Amber Accent */}
-        <input
-          type="range"
-          min={min}
-          max={max}
-          step={step}
-          value={numericValue}
-          onChange={handleSliderChange}
-          onPointerUp={() => commitImmediate(localValue)}
-          onTouchEnd={() => commitImmediate(localValue)}
-          className="flex-1 h-1.5 bg-[#232838] rounded-lg appearance-none cursor-pointer accent-cyan-500 hover:opacity-95"
-        />
+      {/* Text Input Box with Incremental Buttons on the Sides */}
+      <div className="flex items-center gap-1.5">
+        <button
+          type="button"
+          onClick={() => handleStep(-1)}
+          disabled={min !== undefined && value !== '' && Number(value) <= min}
+          className="h-9 w-10 bg-[#f1f5f9] hover:bg-[#e2e8f0] active:bg-[#cbd5e1] disabled:opacity-35 disabled:cursor-not-allowed border border-[#b8d4e3] rounded-md font-mono font-bold text-base text-[#1e293b] transition-all flex items-center justify-center shrink-0 shadow-sm select-none"
+          title={`Decrease by ${step} ${unit}`}
+        >
+          -
+        </button>
 
-        {/* Compact Right-aligned Input */}
-        <div className="relative w-24 shrink-0">
+        <div className="relative flex-1">
           <input
             type="number"
             step={step}
             inputMode="decimal"
             autoComplete="off"
             spellCheck={false}
-            value={localValue === '' ? '' : localValue}
+            value={localValue}
+            onFocus={() => { isFocusedRef.current = true; }}
+            onBlur={handleInputBlur}
             onChange={handleInputChange}
             onKeyDown={(e) => {
               if (e.key === 'Enter') {
                 e.preventDefault();
-                commitImmediate(localValue);
+                handleInputBlur();
                 (e.target as HTMLElement).blur();
               }
             }}
-            onBlur={() => commitImmediate(localValue)}
-            className="bg-[#181c26] border border-[#a3c9db] text-[#0f172a] font-mono text-xs rounded px-2 py-2 pr-6 w-full text-right outline-none focus:border-cyan-600 focus:ring-1 focus:ring-cyan-600/30 transition-all shadow-inner"
+            placeholder="0.00"
+            className="w-full h-9 bg-[#f8fbfd] border border-[#b8d4e3] rounded-md px-2.5 pr-8 font-mono text-xs text-[#0f172a] text-center font-bold outline-none focus:border-[#0284c7] focus:ring-1 focus:ring-[#0284c7]/30 transition-all shadow-inner"
           />
-          <span className="absolute right-2 top-1/2 -translate-y-1/2 text-xs font-mono font-semibold text-[#64748b] select-none pointer-events-none">
-            {unit}
-          </span>
+          {unit && (
+            <span className="absolute right-2 top-1/2 -translate-y-1/2 text-[11px] font-mono font-semibold text-[#64748b] pointer-events-none select-none uppercase">
+              {unit}
+            </span>
+          )}
         </div>
+
+        <button
+          type="button"
+          onClick={() => handleStep(1)}
+          disabled={max !== undefined && value !== '' && Number(value) >= max}
+          className="h-9 w-10 bg-[#f1f5f9] hover:bg-[#e2e8f0] active:bg-[#cbd5e1] disabled:opacity-35 disabled:cursor-not-allowed border border-[#b8d4e3] rounded-md font-mono font-bold text-base text-[#1e293b] transition-all flex items-center justify-center shrink-0 shadow-sm select-none"
+          title={`Increase by ${step} ${unit}`}
+        >
+          +
+        </button>
       </div>
 
-      {tooltip && <p className="text-xs font-mono text-[#64748b] leading-tight">{tooltip}</p>}
+      {tooltip && <p className="text-[11px] font-mono text-[#64748b] leading-tight mt-0.5">{tooltip}</p>}
     </div>
   );
 });
@@ -363,7 +374,7 @@ export const SpecificationsPanel: React.FC<SpecificationsPanelProps> = ({
       id: `ramp-${Math.random().toString(36).substr(2, 9)}`,
       deckId,
       side: 'bottom',
-      corner: 'bottomLeft',
+      corner: 'bottomRight', // Origin is at bottom right
       offset: 0,
       width: 1.2,
       length: 2.4,
@@ -373,7 +384,23 @@ export const SpecificationsPanel: React.FC<SpecificationsPanelProps> = ({
   };
 
   const updateRamp = (id: string, updates: Partial<RampConfig>) => {
-    onRampsChange(ramps.map((r) => (r.id === id ? { ...r, ...updates } : r)));
+    onRampsChange(
+      ramps.map((r) => {
+        if (r.id !== id) return r;
+        const merged = { ...r, ...updates };
+        // Auto-adapt corner when edge changes if corner is not explicitly updated
+        if (updates.side && updates.side !== r.side && !updates.corner) {
+          if (updates.side === 'bottom' || updates.side === 'right') {
+            merged.corner = 'bottomRight';
+          } else if (updates.side === 'top') {
+            merged.corner = 'topRight';
+          } else if (updates.side === 'left') {
+            merged.corner = 'bottomLeft';
+          }
+        }
+        return merged;
+      })
+    );
   };
 
   const removeRamp = (id: string) => {
@@ -706,9 +733,9 @@ export const SpecificationsPanel: React.FC<SpecificationsPanelProps> = ({
                         onChange={(v) => updateDeck(deck.id, { depth: v })}
                         min={1.2}
                         max={30}
-                        step={0.6}
+                        step={1.2}
                         unit="m"
-                        tooltip="Scaffold length along main run axis"
+                        tooltip="Scaffold length along main run axis (1.2m increments)"
                       />
                     )}
 
@@ -718,54 +745,40 @@ export const SpecificationsPanel: React.FC<SpecificationsPanelProps> = ({
                       onChange={(v) => updateDeck(deck.id, { width: v })}
                       min={1.2}
                       max={30}
-                      step={0.6}
+                      step={1.2}
                       unit="m"
-                      tooltip="Scaffold width across bay modules"
+                      tooltip="Scaffold width across bay modules (1.2m increments)"
                     />
 
                     {deck.type === 'raking' && (
-                      <div className="sm:col-span-2 bg-[#161a25] border border-[#a3c9db] rounded-lg p-3 flex flex-col gap-2.5">
+                      <div className="sm:col-span-2 bg-[#ffffff] border border-[#b8d4e3] rounded-lg p-3 flex flex-col gap-2.5 shadow-sm">
                         <div className="flex items-center justify-between">
                           <div className="flex flex-col">
                             <span className="text-sm font-mono text-[#334155] font-semibold">Raking Construction Datum</span>
-                            <span className="text-xs text-[#7e8b9f]">Left Corner Datum (0, 0) • Rostrums hook on 1.2m sides with 2.4m hooks facing inwards</span>
+                            <span className="text-xs text-[#64748b]">Bottom Right Origin Datum • Rostrums hook on 1.2m sides</span>
                           </div>
-                          <span className="px-2.5 py-2 text-xs font-mono font-bold uppercase rounded bg-cyan-600/10 border border-cyan-600/40 text-cyan-600">
-                            LEFT CORNER ORIGIN
+                          <span className="px-2.5 py-1 text-xs font-mono font-bold uppercase rounded bg-[#e0f2fe] border border-[#bae6fd] text-[#0284c7]">
+                            BOTTOM RIGHT ORIGIN
                           </span>
                         </div>
-                        <div className="grid grid-cols-3 gap-2 pt-2 border-t border-[#a3c9db] text-xs font-mono">
+                        <div className="grid grid-cols-3 gap-2 pt-2 border-t border-[#e2e8f0] text-xs font-mono">
                           <div className="flex flex-col">
-                            <span className="text-[#7e8b9f]">Total Depth:</span>
-                            <span className="text-cyan-600 font-bold">
+                            <span className="text-[#64748b]">Total Depth:</span>
+                            <span className="text-[#0284c7] font-bold">
                               {(((Number(deck.tiers) || 8) * (Number(deck.stepDepth) || 1.2))).toFixed(2)}m
                             </span>
                           </div>
                           <div className="flex flex-col">
-                            <span className="text-[#7e8b9f]">Top Elevation:</span>
-                            <span className="text-cyan-600 font-bold">
+                            <span className="text-[#64748b]">Top Elevation:</span>
+                            <span className="text-[#0284c7] font-bold">
                               {(((Number(deck.tiers) || 8) * (Number(deck.stepHeight) || 0.25))).toFixed(2)}m
                             </span>
                           </div>
                           <div className="flex flex-col">
-                            <span className="text-[#7e8b9f]">Rake Pitch:</span>
-                            <span className="text-cyan-600 font-bold">
+                            <span className="text-[#64748b]">Rake Pitch:</span>
+                            <span className="text-[#0284c7] font-bold">
                               {(Math.atan((Number(deck.stepHeight) || 0.25) / (Number(deck.stepDepth) || 1.2)) * 180 / Math.PI).toFixed(1)}°
                             </span>
-                          </div>
-                        </div>
-                        <div className="pt-2 border-t border-[#a3c9db] flex flex-col gap-1 text-xs font-mono text-[#475569]">
-                          <div className="flex items-center justify-between">
-                            <span>Bracing Pattern:</span>
-                            <span className="text-cyan-700 font-semibold">4 Ledger Bays / Braced Bay • Open Bay Alternating</span>
-                          </div>
-                          <div className="flex items-center justify-between">
-                            <span>Bracing Elevation:</span>
-                            <span className="text-cyan-700 font-semibold">Starts &ge; 1.0m • Uniform Depth Direction</span>
-                          </div>
-                          <div className="flex items-center justify-between">
-                            <span>Double Ledger Line:</span>
-                            <span className="text-cyan-700 font-semibold">Active &gt; 1750mm Standards • 1m Vertical Spacing</span>
                           </div>
                         </div>
                       </div>
@@ -777,21 +790,21 @@ export const SpecificationsPanel: React.FC<SpecificationsPanelProps> = ({
                           label="Origin X Position"
                           value={deck.originX ?? 0}
                           onChange={(v) => updateDeck(deck.id, { originX: v })}
-                          min={-20}
-                          max={20}
-                          step={0.6}
+                          min={-30}
+                          max={30}
+                          step={1.2}
                           unit="m"
-                          tooltip="World X offset from origin"
+                          tooltip="World X offset from origin (1.2m increments)"
                         />
                         <CadDimensionField
                           label="Origin Z Position"
                           value={deck.originZ ?? 0}
                           onChange={(v) => updateDeck(deck.id, { originZ: v })}
-                          min={-20}
-                          max={20}
-                          step={0.6}
+                          min={-30}
+                          max={30}
+                          step={1.2}
                           unit="m"
-                          tooltip="World Z offset from origin"
+                          tooltip="World Z offset from origin (1.2m increments)"
                         />
                         <CadDimensionField
                           label="Orientation Rotation"
@@ -809,11 +822,11 @@ export const SpecificationsPanel: React.FC<SpecificationsPanelProps> = ({
                         label="Attachment Offset"
                         value={deck.attachOffset ?? 0}
                         onChange={(v) => updateDeck(deck.id, { attachOffset: v })}
-                        min={-15}
-                        max={15}
-                        step={0.6}
+                        min={-30}
+                        max={30}
+                        step={1.2}
                         unit="m"
-                        tooltip="Shift along the attached parent edge"
+                        tooltip="Shift along attached edge (1.2m increments)"
                       />
                     )}
 
@@ -851,44 +864,47 @@ export const SpecificationsPanel: React.FC<SpecificationsPanelProps> = ({
                     />
 
                     <CadDimensionField
-                      label="Corner 1 (Origin) Grade"
+                      label="Corner 1 (Origin - Bottom Right) Grade"
                       value={deck.terrain.groundOffsets.origin ?? 0}
                       onChange={(v) => updateGroundOffsets(deck.id, { origin: v })}
                       min={-4}
                       max={4}
                       step={0.1}
                       unit="m"
-                      tooltip="Ground offset at origin corner (0,0)"
+                      tooltip="Ground offset at Origin (Bottom Right corner)"
                     />
 
                     <CadDimensionField
-                      label="Corner 2 (Width End) Grade"
+                      label="Corner 2 (Bottom Left) Grade"
                       value={deck.terrain.groundOffsets.widthEnd ?? 0}
                       onChange={(v) => updateGroundOffsets(deck.id, { widthEnd: v })}
                       min={-4}
                       max={4}
                       step={0.1}
                       unit="m"
+                      tooltip="Ground offset at Bottom Left corner"
                     />
 
                     <CadDimensionField
-                      label="Corner 3 (Depth End) Grade"
+                      label="Corner 3 (Top Right) Grade"
                       value={deck.terrain.groundOffsets.depthEnd ?? 0}
                       onChange={(v) => updateGroundOffsets(deck.id, { depthEnd: v })}
                       min={-4}
                       max={4}
                       step={0.1}
                       unit="m"
+                      tooltip="Ground offset at Top Right corner"
                     />
 
                     <CadDimensionField
-                      label="Corner 4 (Diagonal) Grade"
+                      label="Corner 4 (Top Left) Grade"
                       value={deck.terrain.groundOffsets.diagonal ?? 0}
                       onChange={(v) => updateGroundOffsets(deck.id, { diagonal: v })}
                       min={-4}
                       max={4}
                       step={0.1}
                       unit="m"
+                      tooltip="Ground offset at Top Left corner"
                     />
                   </div>
                 </div>
@@ -958,35 +974,60 @@ export const SpecificationsPanel: React.FC<SpecificationsPanelProps> = ({
                           label="Measure From Corner"
                           value={ramp.corner}
                           onChange={(v) => updateRamp(ramp.id, { corner: v as any })}
-                          options={[
-                            { value: 'topLeft', label: 'Top Left' },
-                            { value: 'topRight', label: 'Top Right' },
-                            { value: 'bottomLeft', label: 'Bottom Left' },
-                            { value: 'bottomRight', label: 'Bottom Right' },
-                          ]}
+                          options={
+                            ramp.side === 'bottom'
+                              ? [
+                                  { value: 'bottomRight', label: 'Bottom Right (Origin)' },
+                                  { value: 'bottomLeft', label: 'Bottom Left' },
+                                ]
+                              : ramp.side === 'right'
+                              ? [
+                                  { value: 'bottomRight', label: 'Bottom Right (Origin)' },
+                                  { value: 'topRight', label: 'Top Right' },
+                                ]
+                              : ramp.side === 'top'
+                              ? [
+                                  { value: 'topRight', label: 'Top Right' },
+                                  { value: 'topLeft', label: 'Top Left' },
+                                ]
+                              : [
+                                  { value: 'bottomLeft', label: 'Bottom Left' },
+                                  { value: 'topLeft', label: 'Top Left' },
+                                ]
+                          }
                         />
 
-                        <CadNumberInput
+                        <CadDimensionField
                           label="Offset Along Edge"
                           value={ramp.offset ?? 0}
                           onChange={(v) => updateRamp(ramp.id, { offset: v === '' ? 0 : v })}
+                          min={0}
+                          max={30}
+                          step={1.2}
                           unit="m"
-                          tooltip="Distance from reference corner"
+                          tooltip="Distance from reference corner in 1.2m increments"
                         />
 
-                        <CadNumberInput
+                        <CadDimensionField
                           label="Ramp Width"
                           value={ramp.width ?? 1.2}
                           onChange={(v) => updateRamp(ramp.id, { width: v === '' ? 1.2 : v })}
+                          min={1.2}
+                          max={12}
+                          step={1.2}
                           unit="m"
+                          tooltip="Width of ramp run (standard 1.2m increments)"
                         />
 
-                        <CadNumberInput
+                        <CadDimensionField
                           label="Ramp Run Length"
                           value={ramp.length ?? 2.4}
                           onChange={(v) => updateRamp(ramp.id, { length: v === '' ? 2.4 : v })}
+                          min={1.2}
+                          max={30}
+                          step={1.2}
                           unit="m"
-                          tooltip="Length along incline gradient"
+                          tooltip="Incline run length in 1.2m increments"
                         />
 
                         <CadToggleChips
@@ -1083,18 +1124,26 @@ export const SpecificationsPanel: React.FC<SpecificationsPanelProps> = ({
                           ]}
                         />
 
-                        <CadNumberInput
+                        <CadDimensionField
                           label="Offset Along Edge"
                           value={handrail.offset ?? 0}
                           onChange={(v) => updateHandrail(handrail.id, { offset: v === '' ? 0 : v })}
+                          min={0}
+                          max={30}
+                          step={1.2}
                           unit="m"
+                          tooltip="Offset from corner in 1.2m increments"
                         />
 
-                        <CadNumberInput
+                        <CadDimensionField
                           label="Railing Span Length"
                           value={handrail.length ?? 2.4}
                           onChange={(v) => updateHandrail(handrail.id, { length: v === '' ? 2.4 : v })}
+                          min={1.2}
+                          max={30}
+                          step={1.2}
                           unit="m"
+                          tooltip="Railing span in 1.2m increments"
                         />
 
                         <CadToggleChips
@@ -1158,21 +1207,27 @@ export const SpecificationsPanel: React.FC<SpecificationsPanelProps> = ({
                       ✕
                     </button>
                     <div className="flex-1 w-full">
-                      <CadNumberInput
+                      <CadDimensionField
                         label="Start Offset from Incline"
                         value={pad.offset ?? 0}
                         onChange={(v) => updateLandingPad(ramp.id, pad.id, { offset: v === '' ? 0 : v })}
+                        min={0}
+                        max={30}
+                        step={1.2}
                         unit="m"
-                        tooltip="Distance from ramp start point"
+                        tooltip="Distance from ramp start in 1.2m increments"
                       />
                     </div>
                     <div className="flex-1 w-full">
-                      <CadNumberInput
+                      <CadDimensionField
                         label="Landing Platform Length"
                         value={pad.length ?? 1.2}
                         onChange={(v) => updateLandingPad(ramp.id, pad.id, { length: v === '' ? 1.2 : v })}
+                        min={1.2}
+                        max={30}
+                        step={1.2}
                         unit="m"
-                        tooltip="Horizontal landing length"
+                        tooltip="Horizontal landing length in 1.2m increments"
                       />
                     </div>
                   </div>

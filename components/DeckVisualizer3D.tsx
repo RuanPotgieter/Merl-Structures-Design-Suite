@@ -202,60 +202,49 @@ const createBasejackHandleGeometry = () => {
 };
 const BASEJACK_HANDLE_GEO = createBasejackHandleGeometry();
 
-// Refined Architectural CAD Origin Datum Indicator
-const OriginMarker: React.FC<{ terrain: TerrainConfig; dimensions: any }> = () => {
+// Origin Datum Indicator: Always at Bottom Right as requested by user
+const OriginMarker: React.FC<{ terrain: TerrainConfig; dimensions: any; feet?: Foot[] }> = ({ terrain, dimensions, feet }) => {
+  // Origin is always at the bottom right corner: X = dimensions.width, Z = 0
+  const posX = Number(dimensions?.width) || 0;
+  const posZ = 0;
+  
+  // Find ground height at bottom-right corner
+  let groundY = 0;
+  if (feet && feet.length > 0) {
+    const brFoot = feet.find(f => Math.abs(f.position.x - posX) < 0.15 && Math.abs(f.position.y - posZ) < 0.15);
+    if (brFoot) {
+      groundY = brFoot.groundHeight;
+    } else {
+      groundY = getGroundYAt(posX, posZ, terrain, dimensions?.width || 1, dimensions?.depth || 1);
+    }
+  } else {
+    groundY = getGroundYAt(posX, posZ, terrain, dimensions?.width || 1, dimensions?.depth || 1);
+  }
+
   return (
-    <group position={[0, 0, 0]}>
-      {/* Ground Survey Datum Benchmark Target */}
-      <mesh position={[0, 0.002, 0]} rotation={[-Math.PI / 2, 0, 0]}>
-        <ringGeometry args={[0.08, 0.22, 32]} />
-        <meshBasicMaterial color="#64748b" side={THREE.DoubleSide} />
+    <group position={[posX, groundY, posZ]}>
+      {/* Origin Red Dot Sphere */}
+      <mesh position={[0, 0.08, 0]} castShadow>
+        <sphereGeometry args={[0.09, 32, 32]} />
+        <meshStandardMaterial 
+          color="#ef4444" 
+          emissive="#ef4444" 
+          emissiveIntensity={0.85} 
+          roughness={0.15} 
+          metalness={0.1} 
+        />
       </mesh>
-      <mesh position={[0, 0.003, 0]} rotation={[-Math.PI / 2, 0, 0]}>
-        <circleGeometry args={[0.035, 32]} />
-        <meshBasicMaterial color="#0f172a" />
+
+      {/* Origin Concentric Ground Ring */}
+      <mesh position={[0, 0.005, 0]} rotation={[-Math.PI / 2, 0, 0]}>
+        <ringGeometry args={[0.12, 0.22, 32]} />
+        <meshBasicMaterial color="#ef4444" side={THREE.DoubleSide} transparent opacity={0.7} />
       </mesh>
 
-      {/* X Axis Arrow (Red) - Width */}
-      <group>
-        <mesh position={[0.22, 0.005, 0]} rotation={[0, 0, -Math.PI / 2]}>
-          <cylinderGeometry args={[0.006, 0.006, 0.44, 12]} />
-          <meshBasicMaterial color="#ef4444" />
-        </mesh>
-        <mesh position={[0.48, 0.005, 0]} rotation={[0, 0, -Math.PI / 2]}>
-          <coneGeometry args={[0.02, 0.08, 16]} />
-          <meshBasicMaterial color="#ef4444" />
-        </mesh>
-      </group>
-
-      {/* Y Axis Arrow (Green) - Elevation */}
-      <group>
-        <mesh position={[0, 0.22, 0]}>
-          <cylinderGeometry args={[0.006, 0.006, 0.44, 12]} />
-          <meshBasicMaterial color="#10b981" />
-        </mesh>
-        <mesh position={[0, 0.48, 0]}>
-          <coneGeometry args={[0.02, 0.08, 16]} />
-          <meshBasicMaterial color="#10b981" />
-        </mesh>
-      </group>
-
-      {/* Z Axis Arrow (Blue) - Depth */}
-      <group>
-        <mesh position={[0, 0.005, 0.22]} rotation={[Math.PI / 2, 0, 0]}>
-          <cylinderGeometry args={[0.006, 0.006, 0.44, 12]} />
-          <meshBasicMaterial color="#3b82f6" />
-        </mesh>
-        <mesh position={[0, 0.005, 0.48]} rotation={[Math.PI / 2, 0, 0]}>
-          <coneGeometry args={[0.02, 0.08, 16]} />
-          <meshBasicMaterial color="#3b82f6" />
-        </mesh>
-      </group>
-
-      {/* Center Origin Precision Hub */}
-      <mesh position={[0, 0.012, 0]}>
-        <sphereGeometry args={[0.018, 16, 16]} />
-        <meshStandardMaterial color="#f8fafc" roughness={0.2} metalness={0.8} />
+      {/* Center Anchor Pin */}
+      <mesh position={[0, 0.04, 0]}>
+        <cylinderGeometry args={[0.015, 0.015, 0.08, 16]} />
+        <meshBasicMaterial color="#dc2626" />
       </mesh>
     </group>
   );
@@ -1080,7 +1069,7 @@ export const DeckVisualizer3D: React.FC<DeckVisualizer3DProps> = React.memo(({
         showAxes={showAxes}
         onToggleAxes={() => {
           setShowAxes(prev => {
-            triggerQuickFeedback(`Origin Benchmark: ${!prev ? 'Visible' : 'Hidden'}`);
+            triggerQuickFeedback(`Origin Red Dot (Bottom Right): ${!prev ? 'Visible' : 'Hidden'}`);
             return !prev;
           });
         }}
@@ -1161,7 +1150,7 @@ export const DeckVisualizer3D: React.FC<DeckVisualizer3DProps> = React.memo(({
         )}
         
         <group>
-          {showAxes && <OriginMarker terrain={data.terrain} dimensions={data.dimensions} />}
+          {showAxes && <OriginMarker terrain={data.terrain} dimensions={data.dimensions} feet={data.feet} />}
           
           {layers.terrain && <TerrainMesh terrain={data.terrain} dimensions={data.dimensions} rostrums={data.rostrums} />}
           
