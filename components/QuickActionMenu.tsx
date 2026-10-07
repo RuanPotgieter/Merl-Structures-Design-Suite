@@ -10,7 +10,10 @@ import {
   ChevronUp, 
   ChevronDown,
   Sparkles,
-  HelpCircle
+  HelpCircle,
+  Printer,
+  Layers,
+  FileCheck2
 } from 'lucide-react';
 
 export interface QuickActionMenuProps {
@@ -25,6 +28,10 @@ export interface QuickActionMenuProps {
   onToggleShadows: () => void;
   showAxes: boolean;
   onToggleAxes: () => void;
+  isShadecloth?: boolean;
+  onToggleShadecloth?: () => void;
+  onExport3dDrawing?: () => void;
+  onClientApprovalExport?: () => void;
 }
 
 export const QuickActionMenu: React.FC<QuickActionMenuProps> = ({
@@ -39,6 +46,10 @@ export const QuickActionMenu: React.FC<QuickActionMenuProps> = ({
   onToggleShadows,
   showAxes,
   onToggleAxes,
+  isShadecloth = false,
+  onToggleShadecloth,
+  onExport3dDrawing,
+  onClientApprovalExport,
 }) => {
   const [isCollapsed, setIsCollapsed] = useState(false);
   const [showHotkeysHint, setShowHotkeysHint] = useState(false);
@@ -220,6 +231,63 @@ export const QuickActionMenu: React.FC<QuickActionMenuProps> = ({
                 {showAxes ? 'ON' : 'OFF'}
               </span>
             </button>
+
+            {/* 7. Perimeter Shadecloth Toggle */}
+            {onToggleShadecloth && (
+              <button
+                onClick={onToggleShadecloth}
+                className={`w-full flex items-center justify-between px-2.5 py-1.5 rounded-lg transition-all ${
+                  isShadecloth
+                    ? 'bg-[#0f172a] text-white shadow-xs font-semibold'
+                    : 'bg-[#ffffff] text-[#334155] hover:bg-[#f0f8ff] hover:text-[#0284c7] border border-[#e2e8f0]'
+                }`}
+                title="Toggle stage perimeter black shadecloth fabric skirting to conceal scaffolding"
+              >
+                <div className="flex items-center gap-2">
+                  <Layers size={13} className={isShadecloth ? 'text-cyan-400' : 'text-[#64748b]'} />
+                  <span>Shadecloth</span>
+                </div>
+                <span className={`text-[10px] px-1.5 py-0.5 rounded font-bold uppercase transition-colors ${
+                  isShadecloth ? 'bg-cyan-500 text-slate-900' : 'bg-[#e2e8f0] text-[#64748b]'
+                }`}>
+                  {isShadecloth ? 'ON' : 'OFF'}
+                </span>
+              </button>
+            )}
+
+            {/* 8. Export 3D Drawing & Checkpoints */}
+            {onExport3dDrawing && (
+              <button
+                onClick={onExport3dDrawing}
+                className="w-full flex items-center justify-between px-2.5 py-1.5 rounded-lg bg-[#f0f8ff] hover:bg-[#e0f2fe] text-[#0284c7] border border-[#bae6fd] shadow-xs font-semibold transition-all mt-0.5"
+                title="Export & Print 3D Drawing with Crucial Checkpoints for Crew"
+              >
+                <div className="flex items-center gap-2">
+                  <Printer size={13} className="text-[#0284c7]" />
+                  <span>Crew 3D Drawing</span>
+                </div>
+                <span className="text-[10px] px-1.5 py-0.5 rounded font-bold bg-[#0284c7] text-white">
+                  PDF
+                </span>
+              </button>
+            )}
+
+            {/* 9. Client Approval 3D Isometric Export */}
+            {onClientApprovalExport && (
+              <button
+                onClick={onClientApprovalExport}
+                className="w-full flex items-center justify-between px-2.5 py-1.5 rounded-lg bg-[#ecfdf5] hover:bg-[#d1fae5] text-[#059669] border border-[#a7f3d0] shadow-xs font-semibold transition-all mt-0.5"
+                title="Export 3D Isometric View for Client Approval & Submittal"
+              >
+                <div className="flex items-center gap-2">
+                  <FileCheck2 size={13} className="text-[#059669]" />
+                  <span>Client Approval 3D</span>
+                </div>
+                <span className="text-[10px] px-1.5 py-0.5 rounded font-bold bg-[#059669] text-white">
+                  SUBMIT
+                </span>
+              </button>
+            )}
           </div>
         )}
 
@@ -244,6 +312,17 @@ export const QuickActionMenu: React.FC<QuickActionMenuProps> = ({
             >
               <Magnet size={14} />
             </button>
+            {onToggleShadecloth && (
+              <button
+                onClick={onToggleShadecloth}
+                className={`p-1.5 rounded transition-colors ${
+                  isShadecloth ? 'text-white bg-[#0f172a]' : 'text-[#64748b] hover:text-[#0284c7]'
+                }`}
+                title={`Shadecloth: ${isShadecloth ? 'ON' : 'OFF'}`}
+              >
+                <Layers size={14} />
+              </button>
+            )}
             <button
               onClick={onCameraReset}
               className="p-1.5 rounded text-[#0284c7] hover:bg-[#e0f2fe] transition-colors"
@@ -251,15 +330,24 @@ export const QuickActionMenu: React.FC<QuickActionMenuProps> = ({
             >
               <RotateCcw size={14} />
             </button>
-            <button
-              onClick={onToggleAutoRotate}
-              className={`p-1.5 rounded transition-colors ${
-                isAutoRotate ? 'text-[#0284c7] bg-[#e0f2fe]' : 'text-[#64748b] hover:text-[#0284c7]'
-              }`}
-              title={`Turntable: ${isAutoRotate ? 'ON' : 'OFF'} [T]`}
-            >
-              <RotateCw size={14} />
-            </button>
+            {onExport3dDrawing && (
+              <button
+                onClick={onExport3dDrawing}
+                className="p-1.5 rounded text-[#0284c7] hover:bg-[#e0f2fe] transition-colors"
+                title="Export Crew 3D Drawing"
+              >
+                <Printer size={14} />
+              </button>
+            )}
+            {onClientApprovalExport && (
+              <button
+                onClick={onClientApprovalExport}
+                className="p-1.5 rounded text-[#059669] hover:bg-[#ecfdf5] transition-colors"
+                title="Client Approval 3D Export"
+              >
+                <FileCheck2 size={14} />
+              </button>
+            )}
           </div>
         )}
       </div>

@@ -1,5 +1,11 @@
 import React, { useState } from 'react';
 import { DeckConfig, RampConfig, HandrailConfig, TerrainConfig } from '../types';
+import { 
+  snapAddedDeck, 
+  snapAdjacentDecks, 
+  snapDeckToNearestAdjacent, 
+  checkDeckOverlaps 
+} from '../utils/deckLogic';
 
 interface SpecificationsPanelProps {
   decks: DeckConfig[];
@@ -323,7 +329,7 @@ export const SpecificationsPanel: React.FC<SpecificationsPanelProps> = ({
   const [activeTab, setActiveTab] = useState<'decks' | 'ramps' | 'handrails' | 'landings'>('decks');
 
   const addDeck = () => {
-    const newDeck: DeckConfig = {
+    const rawNewDeck: DeckConfig = {
       id: `deck-${decks.length + 1}`,
       type: 'standard',
       handrailType: 'standard',
@@ -333,11 +339,12 @@ export const SpecificationsPanel: React.FC<SpecificationsPanelProps> = ({
       originZ: 0,
       orientation: 0,
       terrain: {
-        deckHeight: 2.0,
+        deckHeight: decks[0]?.terrain?.deckHeight ?? 2.0,
         groundOffsets: { origin: 0, widthEnd: 0, depthEnd: 0, diagonal: 0 },
       },
     };
-    onDecksChange([...decks, newDeck]);
+    const snappedNewDeck = snapAddedDeck(rawNewDeck, decks);
+    onDecksChange([...decks, snappedNewDeck]);
   };
 
   const updateDeck = (id: string, updates: Partial<DeckConfig>) => {
@@ -369,16 +376,30 @@ export const SpecificationsPanel: React.FC<SpecificationsPanelProps> = ({
     onHandrailsChange(handrails.filter((h) => h.deckId !== id));
   };
 
-  const addRamp = (deckId: string) => {
+  const addRamp = (
+    deckId: string,
+    preset?: {
+      startSource?: 'deck' | 'landing';
+      parentRampId?: string;
+      landingPadId?: string;
+      landingFace?: 'forward' | 'left' | 'right';
+    }
+  ) => {
+    const isLanding = preset?.startSource === 'landing';
     const newRamp: RampConfig = {
       id: `ramp-${Math.random().toString(36).substr(2, 9)}`,
       deckId,
+      startSource: isLanding ? 'landing' : 'deck',
+      parentRampId: preset?.parentRampId,
+      landingPadId: preset?.landingPadId,
+      landingFace: preset?.landingFace || 'forward',
       side: 'bottom',
       corner: 'bottomRight', // Origin is at bottom right
       offset: 0,
       width: 1.2,
       length: 2.4,
       landingPads: [],
+      handrailType: 'both',
     };
     onRampsChange([...ramps, newRamp]);
   };
@@ -404,18 +425,23 @@ export const SpecificationsPanel: React.FC<SpecificationsPanelProps> = ({
   };
 
   const removeRamp = (id: string) => {
-    onRampsChange(ramps.filter((r) => r.id !== id));
+    // Also remove any child ramps that branched from landing pads of this ramp
+    onRampsChange(ramps.filter((r) => r.id !== id && r.parentRampId !== id));
   };
 
   const addLandingPad = (rampId: string) => {
+    const targetRamp = ramps.find((r) => r.id === rampId);
+    if (!targetRamp) return;
+    const rampLen = Number(targetRamp.length) || 2.4;
+    const defaultOffset = Math.max(0, rampLen >= 2.4 ? rampLen - 1.2 : 0);
+    const newPad = {
+      id: `lp-${Math.random().toString(36).substr(2, 9)}`,
+      offset: defaultOffset,
+      length: 1.2,
+    };
     onRampsChange(
       ramps.map((r) => {
         if (r.id === rampId) {
-          const newPad = {
-            id: `lp-${Math.random().toString(36).substr(2, 9)}`,
-            offset: 0,
-            length: 1.2,
-          };
           return { ...r, landingPads: [...(r.landingPads || []), newPad] };
         }
         return r;
@@ -443,12 +469,14 @@ export const SpecificationsPanel: React.FC<SpecificationsPanelProps> = ({
 
   const removeLandingPad = (rampId: string, padId: string) => {
     onRampsChange(
-      ramps.map((r) => {
-        if (r.id === rampId) {
-          return { ...r, landingPads: (r.landingPads || []).filter((p) => p.id !== padId) };
-        }
-        return r;
-      })
+      ramps
+        .filter((r) => !(r.startSource === 'landing' && r.parentRampId === rampId && r.landingPadId === padId))
+        .map((r) => {
+          if (r.id === rampId) {
+            return { ...r, landingPads: (r.landingPads || []).filter((p) => p.id !== padId) };
+          }
+          return r;
+        })
     );
   };
 
@@ -571,8 +599,47 @@ export const SpecificationsPanel: React.FC<SpecificationsPanelProps> = ({
       {/* Main Parameters Content Body */}
       <div className="flex flex-col gap-5 p-4 md:p-5 overflow-y-auto flex-1">
         {/* DECKS CONFIGURATION */}
-        {activeTab === 'decks' &&
-          decks.map((deck, i) => (
+        {activeTab === 'decks' && (
+          <>
+            {decks.length > 1 && (
+              <div className={`flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 p-3.5 rounded-xl border ${
+                checkDeckOverlaps(decks).length > 0 
+                  ? 'bg-amber-50/80 border-amber-300' 
+                  : 'bg-emerald-50/70 border-emerald-200'
+              }`}>
+                <div className="flex items-center gap-2.5">
+                  <div className={`w-2.5 h-2.5 rounded-full ${
+                    checkDeckOverlaps(decks).length > 0 ? 'bg-amber-500 animate-pulse' : 'bg-emerald-500'
+                  }`} />
+                  <div>
+                    <div className="text-xs font-mono font-bold text-slate-800">
+                      {checkDeckOverlaps(decks).length > 0
+                        ? `Scaffold Overlap Detected (${checkDeckOverlaps(decks).length} collision${checkDeckOverlaps(decks).length > 1 ? 's' : ''})`
+                        : 'Unified Modular Scaffold Array'}
+                    </div>
+                    <div className="text-[11px] text-slate-500 font-mono">
+                      {checkDeckOverlaps(decks).length > 0
+                        ? 'Decks overlap. Snap coordinates to unify standards & prevent collisions.'
+                        : 'Adjacent decks share boundary standards & ledgers on 1.2m grid.'}
+                    </div>
+                  </div>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => onDecksChange(snapAdjacentDecks(decks))}
+                  className="px-3 py-1.5 rounded-lg text-xs font-mono font-bold text-cyan-700 bg-cyan-50 border border-cyan-300 hover:bg-cyan-100 transition-colors flex items-center gap-1.5 shadow-sm whitespace-nowrap"
+                  title="Snap all adjacent decks onto 1.2m modular grid and resolve overlaps"
+                >
+                  <svg className="w-3.5 h-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                    <path d="M4 12v8a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-8" />
+                    <polyline points="16 6 12 2 8 6" />
+                    <line x1="12" y1="2" x2="12" y2="15" />
+                  </svg>
+                  Auto-Snap All Decks
+                </button>
+              </div>
+            )}
+            {decks.map((deck, i) => (
             <div
               key={deck.id}
               className="bg-[#ffffff] rounded-xl border border-[#b8d4e3] shadow-md overflow-hidden"
@@ -700,7 +767,6 @@ export const SpecificationsPanel: React.FC<SpecificationsPanelProps> = ({
                           value={deck.tiers ?? 8}
                           onChange={(v) => updateDeck(deck.id, { tiers: v === '' ? '' : Math.round(v) })}
                           min={1}
-                          max={20}
                           step={1}
                           unit="tiers"
                           tooltip="Number of stepped levels in raking rostrum"
@@ -732,10 +798,9 @@ export const SpecificationsPanel: React.FC<SpecificationsPanelProps> = ({
                         value={deck.depth ?? 4.8}
                         onChange={(v) => updateDeck(deck.id, { depth: v })}
                         min={1.2}
-                        max={30}
                         step={1.2}
                         unit="m"
-                        tooltip="Scaffold length along main run axis (1.2m increments)"
+                        tooltip="Scaffold length along main run axis (user-defined, 1.2m increments)"
                       />
                     )}
 
@@ -744,10 +809,9 @@ export const SpecificationsPanel: React.FC<SpecificationsPanelProps> = ({
                       value={deck.width ?? (deck.type === 'raking' ? 8.4 : 4.8)}
                       onChange={(v) => updateDeck(deck.id, { width: v })}
                       min={1.2}
-                      max={30}
                       step={1.2}
                       unit="m"
-                      tooltip="Scaffold width across bay modules (1.2m increments)"
+                      tooltip="Scaffold width across bay modules (user-defined, 1.2m increments)"
                     />
 
                     {deck.type === 'raking' && (
@@ -790,8 +854,6 @@ export const SpecificationsPanel: React.FC<SpecificationsPanelProps> = ({
                           label="Origin X Position"
                           value={deck.originX ?? 0}
                           onChange={(v) => updateDeck(deck.id, { originX: v })}
-                          min={-30}
-                          max={30}
                           step={1.2}
                           unit="m"
                           tooltip="World X offset from origin (1.2m increments)"
@@ -800,8 +862,6 @@ export const SpecificationsPanel: React.FC<SpecificationsPanelProps> = ({
                           label="Origin Z Position"
                           value={deck.originZ ?? 0}
                           onChange={(v) => updateDeck(deck.id, { originZ: v })}
-                          min={-30}
-                          max={30}
                           step={1.2}
                           unit="m"
                           tooltip="World Z offset from origin (1.2m increments)"
@@ -816,14 +876,27 @@ export const SpecificationsPanel: React.FC<SpecificationsPanelProps> = ({
                           unit="°"
                           tooltip="Angular orientation in degrees"
                         />
+                        {decks.length > 1 && (
+                          <div className="sm:col-span-2 flex items-center justify-end">
+                            <button
+                              type="button"
+                              onClick={() => onDecksChange(snapDeckToNearestAdjacent(deck.id, decks))}
+                              className="text-xs font-mono font-medium text-cyan-700 hover:text-cyan-800 bg-cyan-50 hover:bg-cyan-100 border border-cyan-200 px-3 py-1.5 rounded-lg flex items-center gap-1.5 transition-colors shadow-xs"
+                              title="Snap this deck flush against the nearest adjacent deck on the 1.2m modular grid"
+                            >
+                              <svg className="w-3.5 h-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                                <path d="M15 3h6v6M9 21H3v-6M21 3l-7 7M3 21l7-7" />
+                              </svg>
+                              Snap to Adjacent Deck
+                            </button>
+                          </div>
+                        )}
                       </>
                     ) : (
                       <CadDimensionField
                         label="Attachment Offset"
                         value={deck.attachOffset ?? 0}
                         onChange={(v) => updateDeck(deck.id, { attachOffset: v })}
-                        min={-30}
-                        max={30}
                         step={1.2}
                         unit="m"
                         tooltip="Shift along attached edge (1.2m increments)"
@@ -911,6 +984,8 @@ export const SpecificationsPanel: React.FC<SpecificationsPanelProps> = ({
               </div>
             </div>
           ))}
+          </>
+        )}
 
         {/* RAMPS CONFIGURATION */}
         {activeTab === 'ramps' &&
@@ -940,110 +1015,309 @@ export const SpecificationsPanel: React.FC<SpecificationsPanelProps> = ({
               <div className="p-4 md:p-5 flex flex-col gap-4">
                 {ramps
                   .filter((r) => r.deckId === deck.id)
-                  .map((ramp) => (
-                    <div
-                      key={ramp.id}
-                      className="bg-[#e6f2f5] border border-[#a3c9db] rounded-lg p-4 relative flex flex-col gap-3"
-                    >
-                      <div className="flex justify-between items-center pb-2 border-b border-[#a3c9db]">
-                        <span className="text-xs font-mono font-bold text-cyan-600">
-                          RAMP ID: {ramp.id}
-                        </span>
-                        <button
-                          onClick={() => removeRamp(ramp.id)}
-                          className="text-[#ef4444] hover:text-[#f87171] text-xs font-mono font-bold transition-colors"
-                        >
-                          ✕ Delete
-                        </button>
+                  .map((ramp) => {
+                    const isLandingStart = ramp.startSource === 'landing';
+                    const otherRamps = ramps.filter((r) => r.id !== ramp.id);
+                    const availableLandingPads = otherRamps.flatMap((r) =>
+                      (r.landingPads || []).map((pad, pIdx) => ({
+                        rampId: r.id,
+                        padId: pad.id,
+                        label: `Ramp [${r.id}] — Landing #${pIdx + 1} (@ ${pad.offset}m, ${pad.length}m lg)`,
+                        pad,
+                      }))
+                    );
+
+                    return (
+                      <div
+                        key={ramp.id}
+                        className="bg-[#e6f2f5] border border-[#a3c9db] rounded-lg p-4 relative flex flex-col gap-4 shadow-sm"
+                      >
+                        {/* Ramp Header */}
+                        <div className="flex flex-wrap justify-between items-center pb-2 border-b border-[#a3c9db] gap-2">
+                          <div className="flex items-center gap-2">
+                            <span className="text-xs font-mono font-bold text-cyan-700">
+                              RAMP ID: {ramp.id}
+                            </span>
+                            {isLandingStart ? (
+                              <span className="px-2 py-0.5 rounded text-[10px] font-mono font-semibold bg-emerald-100 text-emerald-800 border border-emerald-300">
+                                Landing Branch: {ramp.landingFace === 'left' ? 'Turn Left 90°' : ramp.landingFace === 'right' ? 'Turn Right 90°' : 'Forward 0°'}
+                              </span>
+                            ) : (
+                              <span className="px-2 py-0.5 rounded text-[10px] font-mono font-semibold bg-[#d4e4ed] text-[#334155] border border-[#a3c9db]">
+                                Deck Edge Attached ({ramp.side.toUpperCase()})
+                              </span>
+                            )}
+                          </div>
+                          <button
+                            onClick={() => removeRamp(ramp.id)}
+                            className="text-[#ef4444] hover:text-[#dc2626] text-xs font-mono font-bold transition-colors"
+                          >
+                            ✕ Delete Ramp
+                          </button>
+                        </div>
+
+                        {/* Starting Location Source Selector */}
+                        <div className="bg-[#ffffff] p-3 rounded-lg border border-[#a3c9db] flex flex-col gap-2">
+                          <CadToggleChips
+                            label="Ramp Starting Location"
+                            value={ramp.startSource || 'deck'}
+                            onChange={(v) => {
+                              const newSource = v as 'deck' | 'landing';
+                              if (newSource === 'landing') {
+                                const targetPad = availableLandingPads[0];
+                                updateRamp(ramp.id, {
+                                  startSource: 'landing',
+                                  parentRampId: targetPad?.rampId,
+                                  landingPadId: targetPad?.padId,
+                                  landingFace: ramp.landingFace || 'forward',
+                                });
+                              } else {
+                                updateRamp(ramp.id, {
+                                  startSource: 'deck',
+                                  parentRampId: undefined,
+                                  landingPadId: undefined,
+                                });
+                              }
+                            }}
+                            options={[
+                              { value: 'deck', label: 'Directly from Deck Edge' },
+                              { value: 'landing', label: 'From Landing Pad Open Face' },
+                            ]}
+                          />
+                        </div>
+
+                        {/* If Starting from Landing Pad Open Face */}
+                        {isLandingStart ? (
+                          <div className="bg-[#f0f9ff] border border-[#bae6fd] rounded-lg p-3.5 flex flex-col gap-3">
+                            <div className="text-xs font-mono font-bold text-sky-900 uppercase tracking-wide flex items-center gap-1.5">
+                              <span>§</span>
+                              <span>Landing Pad Branch Connection</span>
+                            </div>
+
+                            {availableLandingPads.length === 0 ? (
+                              <div className="bg-[#fffbeb] border border-[#fde68a] rounded p-3 text-xs font-mono text-[#92400e]">
+                                ⚠️ No landing pads exist on other ramps yet. Landing pads can only be added once an access ramp is placed. Add a landing pad to an existing ramp first, or switch to "Directly from Deck Edge".
+                              </div>
+                            ) : (
+                              <>
+                                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                                  <CadSelectInput
+                                    label="Connect to Parent Landing Pad"
+                                    value={ramp.landingPadId || availableLandingPads[0].padId}
+                                    onChange={(val) => {
+                                      const selected = availableLandingPads.find((p) => p.padId === val);
+                                      if (selected) {
+                                        updateRamp(ramp.id, {
+                                          parentRampId: selected.rampId,
+                                          landingPadId: selected.padId,
+                                        });
+                                      }
+                                    }}
+                                    options={availableLandingPads.map((p) => ({
+                                      value: p.padId,
+                                      label: p.label,
+                                    }))}
+                                  />
+
+                                  <CadToggleChips
+                                    label="Start on Open Face of Landing"
+                                    value={ramp.landingFace || 'forward'}
+                                    onChange={(v) => updateRamp(ramp.id, { landingFace: v as any })}
+                                    options={[
+                                      { value: 'forward', label: 'Straight Ahead (Forward)' },
+                                      { value: 'left', label: 'Turn 90° Left' },
+                                      { value: 'right', label: 'Turn 90° Right' },
+                                    ]}
+                                  />
+                                </div>
+                                <div className="text-[11px] font-mono text-sky-800 bg-[#e0f2fe] px-2.5 py-1.5 rounded border border-[#7dd3fc]">
+                                  {ramp.landingFace === 'left' && '← Left Face: Ramp branches 90° to the left (dogleg/switchback configuration).'}
+                                  {ramp.landingFace === 'right' && '→ Right Face: Ramp branches 90° to the right (dogleg/switchback configuration).'}
+                                  {(!ramp.landingFace || ramp.landingFace === 'forward') && '↑ Straight Ahead: Ramp continues in-line with the parent ramp run direction.'}
+                                </div>
+                              </>
+                            )}
+                          </div>
+                        ) : (
+                          /* If Starting Directly from Deck Edge */
+                          <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                            <CadToggleChips
+                              label="Attach to Deck Edge"
+                              value={ramp.side}
+                              onChange={(v) => updateRamp(ramp.id, { side: v as any })}
+                              options={[
+                                { value: 'top', label: 'Top' },
+                                { value: 'bottom', label: 'Bottom' },
+                                { value: 'left', label: 'Left' },
+                                { value: 'right', label: 'Right' },
+                              ]}
+                            />
+
+                            <CadSelectInput
+                              label="Measure From Corner"
+                              value={ramp.corner}
+                              onChange={(v) => updateRamp(ramp.id, { corner: v as any })}
+                              options={
+                                ramp.side === 'bottom'
+                                  ? [
+                                      { value: 'bottomRight', label: 'Bottom Right (Origin)' },
+                                      { value: 'bottomLeft', label: 'Bottom Left' },
+                                    ]
+                                  : ramp.side === 'right'
+                                  ? [
+                                      { value: 'bottomRight', label: 'Bottom Right (Origin)' },
+                                      { value: 'topRight', label: 'Top Right' },
+                                    ]
+                                  : ramp.side === 'top'
+                                  ? [
+                                      { value: 'topRight', label: 'Top Right' },
+                                      { value: 'topLeft', label: 'Top Left' },
+                                    ]
+                                  : [
+                                      { value: 'bottomLeft', label: 'Bottom Left' },
+                                      { value: 'topLeft', label: 'Top Left' },
+                                    ]
+                              }
+                            />
+
+                            <CadDimensionField
+                              label="Offset Along Edge"
+                              value={ramp.offset ?? 0}
+                              onChange={(v) => updateRamp(ramp.id, { offset: v === '' ? 0 : v })}
+                              min={0}
+                              step={1.2}
+                              unit="m"
+                              tooltip="Distance from reference corner in 1.2m increments"
+                            />
+                          </div>
+                        )}
+
+                        {/* Dimensions & Guardrails */}
+                        <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                          <CadDimensionField
+                            label="Ramp Width"
+                            value={ramp.width ?? 1.2}
+                            onChange={(v) => updateRamp(ramp.id, { width: v === '' ? 1.2 : v })}
+                            min={1.2}
+                            step={1.2}
+                            unit="m"
+                            tooltip="Width of ramp run (standard 1.2m increments)"
+                          />
+
+                          <CadDimensionField
+                            label="Ramp Run Length"
+                            value={ramp.length ?? 2.4}
+                            onChange={(v) => updateRamp(ramp.id, { length: v === '' ? 2.4 : v })}
+                            min={1.2}
+                            step={1.2}
+                            unit="m"
+                            tooltip="Incline run length in 1.2m increments"
+                          />
+
+                          <CadToggleChips
+                            label="Ramp Handrails"
+                            value={ramp.handrailType ?? 'both'}
+                            onChange={(v) => updateRamp(ramp.id, { handrailType: v as any })}
+                            options={[
+                              { value: 'both', label: 'Both Sides' },
+                              { value: 'left', label: 'Left Only' },
+                              { value: 'right', label: 'Right Only' },
+                              { value: 'none', label: 'None' },
+                            ]}
+                          />
+                        </div>
+
+                        {/* Integrated Landing Pads on this Ramp */}
+                        <div className="bg-[#ffffff] rounded-lg border border-[#a3c9db] p-3 flex flex-col gap-2.5">
+                          <div className="flex justify-between items-center">
+                            <span className="text-xs font-mono font-bold text-[#0f172a] uppercase tracking-wide flex items-center gap-1.5">
+                              <span className="text-cyan-600">■</span>
+                              <span>Landing Pads on this Ramp ({(ramp.landingPads || []).length})</span>
+                            </span>
+                            <button
+                              onClick={() => addLandingPad(ramp.id)}
+                              className="px-2.5 py-1 text-[11px] font-mono font-bold text-cyan-700 hover:text-white bg-[#e0f2fe] hover:bg-cyan-600 border border-cyan-400/40 rounded transition-all"
+                            >
+                              + Add Landing Pad
+                            </button>
+                          </div>
+
+                          {(ramp.landingPads || []).map((pad, pIdx) => (
+                            <div
+                              key={pad.id}
+                              className="flex flex-col gap-2 p-2.5 rounded bg-[#f8fafc] border border-[#cbd5e1]"
+                            >
+                              <div className="flex justify-between items-center pb-1 border-b border-[#e2e8f0]">
+                                <span className="text-[11px] font-mono font-bold text-cyan-800">
+                                  Landing #{pIdx + 1} [{pad.id}]
+                                </span>
+                                <button
+                                  onClick={() => removeLandingPad(ramp.id, pad.id)}
+                                  className="text-[#ef4444] hover:text-[#dc2626] font-mono text-[11px] font-bold"
+                                >
+                                  ✕ Remove
+                                </button>
+                              </div>
+
+                              <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                                <CadDimensionField
+                                  label="Offset from Incline Start"
+                                  value={pad.offset ?? 0}
+                                  onChange={(v) => updateLandingPad(ramp.id, pad.id, { offset: v === '' ? 0 : v })}
+                                  min={0}
+                                  max={ramp.length ? Number(ramp.length) : undefined}
+                                  step={1.2}
+                                  unit="m"
+                                  tooltip="Distance from ramp start in 1.2m increments"
+                                />
+                                <CadDimensionField
+                                  label="Platform Length"
+                                  value={pad.length ?? 1.2}
+                                  onChange={(v) => updateLandingPad(ramp.id, pad.id, { length: v === '' ? 1.2 : v })}
+                                  min={1.2}
+                                  step={1.2}
+                                  unit="m"
+                                  tooltip="Horizontal landing length in 1.2m increments"
+                                />
+                              </div>
+
+                              {/* Quick actions to branch a new ramp from this landing pad */}
+                              <div className="flex flex-wrap items-center gap-1.5 pt-1 text-[11px] font-mono">
+                                <span className="text-[#64748b]">Branch new ramp:</span>
+                                <button
+                                  onClick={() => addRamp(deck.id, { startSource: 'landing', parentRampId: ramp.id, landingPadId: pad.id, landingFace: 'forward' })}
+                                  className="px-2 py-0.5 rounded bg-[#e0f2fe] hover:bg-cyan-600 hover:text-white text-cyan-800 border border-cyan-300 font-bold transition-all"
+                                  title="Add ramp continuing straight ahead from this landing"
+                                >
+                                  + Straight Ahead
+                                </button>
+                                <button
+                                  onClick={() => addRamp(deck.id, { startSource: 'landing', parentRampId: ramp.id, landingPadId: pad.id, landingFace: 'left' })}
+                                  className="px-2 py-0.5 rounded bg-[#e0f2fe] hover:bg-cyan-600 hover:text-white text-cyan-800 border border-cyan-300 font-bold transition-all"
+                                  title="Add ramp turning 90° left from this landing"
+                                >
+                                  + Turn Left 90°
+                                </button>
+                                <button
+                                  onClick={() => addRamp(deck.id, { startSource: 'landing', parentRampId: ramp.id, landingPadId: pad.id, landingFace: 'right' })}
+                                  className="px-2 py-0.5 rounded bg-[#e0f2fe] hover:bg-cyan-600 hover:text-white text-cyan-800 border border-cyan-300 font-bold transition-all"
+                                  title="Add ramp turning 90° right from this landing"
+                                >
+                                  + Turn Right 90°
+                                </button>
+                              </div>
+                            </div>
+                          ))}
+
+                          {(!ramp.landingPads || ramp.landingPads.length === 0) && (
+                            <p className="text-[#64748b] text-[11px] font-mono italic text-center py-1">
+                              No landing pads configured on this ramp run. Click "+ Add Landing Pad" to add one.
+                            </p>
+                          )}
+                        </div>
                       </div>
-
-                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                        <CadToggleChips
-                          label="Attach to Deck Edge"
-                          value={ramp.side}
-                          onChange={(v) => updateRamp(ramp.id, { side: v as any })}
-                          options={[
-                            { value: 'top', label: 'Top' },
-                            { value: 'bottom', label: 'Bottom' },
-                            { value: 'left', label: 'Left' },
-                            { value: 'right', label: 'Right' },
-                          ]}
-                        />
-
-                        <CadSelectInput
-                          label="Measure From Corner"
-                          value={ramp.corner}
-                          onChange={(v) => updateRamp(ramp.id, { corner: v as any })}
-                          options={
-                            ramp.side === 'bottom'
-                              ? [
-                                  { value: 'bottomRight', label: 'Bottom Right (Origin)' },
-                                  { value: 'bottomLeft', label: 'Bottom Left' },
-                                ]
-                              : ramp.side === 'right'
-                              ? [
-                                  { value: 'bottomRight', label: 'Bottom Right (Origin)' },
-                                  { value: 'topRight', label: 'Top Right' },
-                                ]
-                              : ramp.side === 'top'
-                              ? [
-                                  { value: 'topRight', label: 'Top Right' },
-                                  { value: 'topLeft', label: 'Top Left' },
-                                ]
-                              : [
-                                  { value: 'bottomLeft', label: 'Bottom Left' },
-                                  { value: 'topLeft', label: 'Top Left' },
-                                ]
-                          }
-                        />
-
-                        <CadDimensionField
-                          label="Offset Along Edge"
-                          value={ramp.offset ?? 0}
-                          onChange={(v) => updateRamp(ramp.id, { offset: v === '' ? 0 : v })}
-                          min={0}
-                          max={30}
-                          step={1.2}
-                          unit="m"
-                          tooltip="Distance from reference corner in 1.2m increments"
-                        />
-
-                        <CadDimensionField
-                          label="Ramp Width"
-                          value={ramp.width ?? 1.2}
-                          onChange={(v) => updateRamp(ramp.id, { width: v === '' ? 1.2 : v })}
-                          min={1.2}
-                          max={12}
-                          step={1.2}
-                          unit="m"
-                          tooltip="Width of ramp run (standard 1.2m increments)"
-                        />
-
-                        <CadDimensionField
-                          label="Ramp Run Length"
-                          value={ramp.length ?? 2.4}
-                          onChange={(v) => updateRamp(ramp.id, { length: v === '' ? 2.4 : v })}
-                          min={1.2}
-                          max={30}
-                          step={1.2}
-                          unit="m"
-                          tooltip="Incline run length in 1.2m increments"
-                        />
-
-                        <CadToggleChips
-                          label="Ramp Handrails"
-                          value={ramp.handrailType ?? 'both'}
-                          onChange={(v) => updateRamp(ramp.id, { handrailType: v as any })}
-                          options={[
-                            { value: 'both', label: 'Both Sides' },
-                            { value: 'left', label: 'Left Only' },
-                            { value: 'right', label: 'Right Only' },
-                            { value: 'none', label: 'None' },
-                          ]}
-                        />
-                      </div>
-                    </div>
-                  ))}
+                    );
+                  })}
 
                 {ramps.filter((r) => r.deckId === deck.id).length === 0 && (
                   <p className="text-[#64748b] text-xs font-mono italic text-center py-4">
@@ -1129,7 +1403,6 @@ export const SpecificationsPanel: React.FC<SpecificationsPanelProps> = ({
                           value={handrail.offset ?? 0}
                           onChange={(v) => updateHandrail(handrail.id, { offset: v === '' ? 0 : v })}
                           min={0}
-                          max={30}
                           step={1.2}
                           unit="m"
                           tooltip="Offset from corner in 1.2m increments"
@@ -1140,7 +1413,6 @@ export const SpecificationsPanel: React.FC<SpecificationsPanelProps> = ({
                           value={handrail.length ?? 2.4}
                           onChange={(v) => updateHandrail(handrail.id, { length: v === '' ? 2.4 : v })}
                           min={1.2}
-                          max={30}
                           step={1.2}
                           unit="m"
                           tooltip="Railing span in 1.2m increments"
@@ -1170,77 +1442,154 @@ export const SpecificationsPanel: React.FC<SpecificationsPanelProps> = ({
           ))}
 
         {/* LANDING PADS CONFIGURATION */}
-        {activeTab === 'landings' &&
-          ramps.map((ramp, i) => (
-            <div
-              key={ramp.id}
-              className="bg-[#ffffff] rounded-xl border border-[#b8d4e3] shadow-md overflow-hidden"
-            >
-              <div className="bg-[#f8fbfd] px-4 py-3 border-b border-[#b8d4e3] flex justify-between items-center">
-                <div className="flex items-center gap-2">
-                  <span className="w-1.5 h-1.5 rounded-full bg-cyan-600"></span>
-                  <h3 className="text-xs font-mono font-bold text-[#0f172a] uppercase tracking-wider">
-                    Landings for Ramp {i + 1}{' '}
-                    <span className="text-[#64748b] text-sm ml-1 font-normal">
-                      [{ramp.id}]
-                    </span>
-                  </h3>
+        {activeTab === 'landings' && (
+          <div className="flex flex-col gap-4">
+            {/* Rule Notice / Empty state when no ramps placed */}
+            {ramps.length === 0 ? (
+              <div className="bg-[#fffbeb] border-2 border-dashed border-[#fde68a] rounded-xl p-6 text-center flex flex-col items-center gap-3 shadow-sm">
+                <div className="w-12 h-12 rounded-full bg-[#fef3c7] flex items-center justify-center text-amber-600 text-2xl font-bold">
+                  ⚠️
                 </div>
-                <button
-                  onClick={() => addLandingPad(ramp.id)}
-                  className="px-3 py-2 text-cyan-600 hover:text-white bg-[#1c202d] hover:bg-cyan-600 border border-cyan-600/30 text-xs font-mono font-bold uppercase tracking-wider transition-all rounded-md"
-                >
-                  + Add Landing Pad
-                </button>
-              </div>
-
-              <div className="p-4 md:p-5 flex flex-col gap-3">
-                {(ramp.landingPads || []).map((pad) => (
-                  <div
-                    key={pad.id}
-                    className="flex flex-col sm:flex-row gap-3 items-end bg-[#e6f2f5] border border-[#a3c9db] p-3.5 rounded-lg relative"
+                <div className="flex flex-col gap-1 max-w-lg">
+                  <h4 className="text-sm font-mono font-bold text-[#92400e] uppercase tracking-wider">
+                    Landing Pads Cannot Be Added Before a Ramp is Placed
+                  </h4>
+                  <p className="text-xs font-mono text-[#b45309] leading-relaxed">
+                    Landing platforms are structural components integrated into access ramps. Place an access ramp on a deck edge first to enable adding landing pads.
+                  </p>
+                </div>
+                {decks.length > 0 ? (
+                  <button
+                    onClick={() => {
+                      addRamp(decks[0].id);
+                      setActiveTab('ramps');
+                    }}
+                    className="mt-2 px-4 py-2.5 bg-amber-600 hover:bg-amber-700 text-white text-xs font-mono font-bold uppercase tracking-wider rounded-lg shadow-sm transition-all flex items-center gap-2"
                   >
-                    <button
-                      onClick={() => removeLandingPad(ramp.id, pad.id)}
-                      className="absolute top-2.5 right-2.5 text-[#ef4444] hover:text-[#f87171] font-mono text-xs font-bold"
-                    >
-                      ✕
-                    </button>
-                    <div className="flex-1 w-full">
-                      <CadDimensionField
-                        label="Start Offset from Incline"
-                        value={pad.offset ?? 0}
-                        onChange={(v) => updateLandingPad(ramp.id, pad.id, { offset: v === '' ? 0 : v })}
-                        min={0}
-                        max={30}
-                        step={1.2}
-                        unit="m"
-                        tooltip="Distance from ramp start in 1.2m increments"
-                      />
-                    </div>
-                    <div className="flex-1 w-full">
-                      <CadDimensionField
-                        label="Landing Platform Length"
-                        value={pad.length ?? 1.2}
-                        onChange={(v) => updateLandingPad(ramp.id, pad.id, { length: v === '' ? 1.2 : v })}
-                        min={1.2}
-                        max={30}
-                        step={1.2}
-                        unit="m"
-                        tooltip="Horizontal landing length in 1.2m increments"
-                      />
-                    </div>
-                  </div>
-                ))}
-
-                {(!ramp.landingPads || ramp.landingPads.length === 0) && (
-                  <p className="text-[#64748b] text-xs font-mono italic text-center py-4">
-                    No landing pads configured for this ramp.
+                    <span>+ Place First Ramp on Deck 1</span>
+                  </button>
+                ) : (
+                  <p className="text-xs font-mono text-[#64748b] italic">
+                    Add a deck first, then place an access ramp.
                   </p>
                 )}
               </div>
-            </div>
-          ))}
+            ) : (
+              <>
+                {/* Information Header */}
+                <div className="bg-[#f0f9ff] border border-[#bae6fd] rounded-lg p-3 text-xs font-mono text-sky-900 flex items-start gap-2.5">
+                  <span className="text-sky-600 font-bold text-sm">ℹ</span>
+                  <div className="flex flex-col gap-0.5">
+                    <span className="font-bold">Landing Platforms & Branching Ramps</span>
+                    <span className="text-[11px] text-sky-800 leading-normal">
+                      Landing pads are placed along access ramps. Ramps can be started on any 3 of the open faces of a landing (Straight Ahead, Left 90°, Right 90°) or directly from a deck edge.
+                    </span>
+                  </div>
+                </div>
+
+                {ramps.map((ramp, i) => (
+                  <div
+                    key={ramp.id}
+                    className="bg-[#ffffff] rounded-xl border border-[#b8d4e3] shadow-md overflow-hidden"
+                  >
+                    <div className="bg-[#f8fbfd] px-4 py-3 border-b border-[#b8d4e3] flex justify-between items-center">
+                      <div className="flex items-center gap-2">
+                        <span className="w-1.5 h-1.5 rounded-full bg-cyan-600"></span>
+                        <h3 className="text-xs font-mono font-bold text-[#0f172a] uppercase tracking-wider">
+                          Landings for Ramp {i + 1}{' '}
+                          <span className="text-[#64748b] text-sm ml-1 font-normal">
+                            [{ramp.id}]
+                          </span>
+                        </h3>
+                      </div>
+                      <button
+                        onClick={() => addLandingPad(ramp.id)}
+                        className="px-3 py-1.5 text-cyan-600 hover:text-white bg-[#1c202d] hover:bg-cyan-600 border border-cyan-600/30 text-xs font-mono font-bold uppercase tracking-wider transition-all rounded-md"
+                      >
+                        + Add Landing Pad
+                      </button>
+                    </div>
+
+                    <div className="p-4 md:p-5 flex flex-col gap-3">
+                      {(ramp.landingPads || []).map((pad, pIdx) => (
+                        <div
+                          key={pad.id}
+                          className="flex flex-col gap-3 bg-[#e6f2f5] border border-[#a3c9db] p-3.5 rounded-lg relative"
+                        >
+                          <div className="flex justify-between items-center pb-1 border-b border-[#a3c9db]">
+                            <span className="text-xs font-mono font-bold text-cyan-800">
+                              Landing #{pIdx + 1} ID: {pad.id}
+                            </span>
+                            <button
+                              onClick={() => removeLandingPad(ramp.id, pad.id)}
+                              className="text-[#ef4444] hover:text-[#dc2626] font-mono text-xs font-bold transition-colors"
+                            >
+                              ✕ Remove
+                            </button>
+                          </div>
+
+                          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                            <CadDimensionField
+                              label="Start Offset from Incline Start"
+                              value={pad.offset ?? 0}
+                              onChange={(v) => updateLandingPad(ramp.id, pad.id, { offset: v === '' ? 0 : v })}
+                              min={0}
+                              max={ramp.length ? Number(ramp.length) : undefined}
+                              step={1.2}
+                              unit="m"
+                              tooltip="Distance from ramp start in 1.2m increments"
+                            />
+                            <CadDimensionField
+                              label="Landing Platform Length"
+                              value={pad.length ?? 1.2}
+                              onChange={(v) => updateLandingPad(ramp.id, pad.id, { length: v === '' ? 1.2 : v })}
+                              min={1.2}
+                              step={1.2}
+                              unit="m"
+                              tooltip="Horizontal landing length in 1.2m increments"
+                            />
+                          </div>
+
+                          {/* Branch Ramps from Open Faces */}
+                          <div className="flex flex-wrap items-center gap-2 pt-2 border-t border-[#c6dfec] text-xs font-mono">
+                            <span className="text-[#334155] font-semibold">Start ramp from open face:</span>
+                            <button
+                              onClick={() => addRamp(ramp.deckId, { startSource: 'landing', parentRampId: ramp.id, landingPadId: pad.id, landingFace: 'forward' })}
+                              className="px-2.5 py-1 rounded bg-[#ffffff] hover:bg-cyan-600 hover:text-white text-cyan-800 border border-cyan-300 font-bold transition-all shadow-xs"
+                              title="Branch continuing straight ahead from landing"
+                            >
+                              + Straight Ahead
+                            </button>
+                            <button
+                              onClick={() => addRamp(ramp.deckId, { startSource: 'landing', parentRampId: ramp.id, landingPadId: pad.id, landingFace: 'left' })}
+                              className="px-2.5 py-1 rounded bg-[#ffffff] hover:bg-cyan-600 hover:text-white text-cyan-800 border border-cyan-300 font-bold transition-all shadow-xs"
+                              title="Branch turning 90° left from landing"
+                            >
+                              + Turn Left 90°
+                            </button>
+                            <button
+                              onClick={() => addRamp(ramp.deckId, { startSource: 'landing', parentRampId: ramp.id, landingPadId: pad.id, landingFace: 'right' })}
+                              className="px-2.5 py-1 rounded bg-[#ffffff] hover:bg-cyan-600 hover:text-white text-cyan-800 border border-cyan-300 font-bold transition-all shadow-xs"
+                              title="Branch turning 90° right from landing"
+                            >
+                              + Turn Right 90°
+                            </button>
+                          </div>
+                        </div>
+                      ))}
+
+                      {(!ramp.landingPads || ramp.landingPads.length === 0) && (
+                        <p className="text-[#64748b] text-xs font-mono italic text-center py-4">
+                          No landing pads configured for this ramp. Click "+ Add Landing Pad" above to add one.
+                        </p>
+                      )}
+                    </div>
+                  </div>
+                ))}
+              </>
+            )}
+          </div>
+        )}
 
         {/* Add Deck Button in Decks tab */}
         {activeTab === 'decks' && (

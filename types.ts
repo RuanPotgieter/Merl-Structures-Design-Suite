@@ -26,13 +26,22 @@ export interface Rostrum {
 
 export interface LandingPadConfig {
   id: string;
+  name?: string;
+  placement?: 'before' | 'after' | 'intermediate';
   offset: number; // Offset from the start of the ramp
-  length: number; // Length of the landing pad
+  width?: number | ''; // Width of the landing pad (m)
+  length: number | ''; // Length of the landing pad (m)
+  orientation?: number | ''; // Orientation angle in degrees (0, 90, 180, 270)
 }
 
 export interface RampConfig {
   id: string;
+  name?: string;
   deckId: string;
+  startSource?: 'deck' | 'landing'; // Starts from deck edge OR from a landing pad face
+  parentRampId?: string;           // If startSource === 'landing', parent ramp ID
+  landingPadId?: string;           // Selected landing pad ID on parent ramp
+  landingFace?: 'forward' | 'left' | 'right'; // Which of the 3 open faces of the landing
   side: 'top' | 'bottom' | 'left' | 'right';
   corner: 'topLeft' | 'topRight' | 'bottomLeft' | 'bottomRight';
   offset: number | ''; 
@@ -82,6 +91,12 @@ export interface Project {
   fileName?: string;
   siteName: string;
   clientName: string;
+  designerName?: string;
+  companyName?: string;
+  designerEmail?: string;
+  designerPhone?: string;
+  designerRegistration?: string;
+  projectReference?: string;
   location?: string;
   photos?: ProjectPhoto[];
   notes?: string;
@@ -101,6 +116,7 @@ export interface DeckConfig {
   centerAisle?: boolean;
   centerAisleWidth?: number | '';
   handrailType?: 'standard' | 'none';
+  shadecloth?: boolean; // Toggle shadecloth / stage skirting to conceal scaffolding
   width: number | '';
   depth: number | '';
   originX: number | '';
@@ -195,4 +211,17 @@ export interface DeckCalculationResult {
   terrain: TerrainConfig;
   status: 'SOLVED' | 'ERROR_NO_VALID_BUILD';
   errors: string[];
+}
+
+export interface SnapAdjacentOptions {
+  gridSize?: number;       // default 1.2m modular grid
+  snapTolerance?: number;  // default 1.8m adjacency detection threshold
+  preventOverlap?: boolean;// default true
+}
+
+export interface AdjacencyCheckResult {
+  isAdjacent: boolean;
+  edge?: 'right' | 'left' | 'front' | 'back';
+  distance: number;
+  aligned: boolean;
 }

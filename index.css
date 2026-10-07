@@ -28,3 +28,20 @@ body {
 .custom-scrollbar::-webkit-scrollbar-thumb:hover {
   background: #a3c9db;
 }
+
+@media print {
+  @page {
+    size: landscape;
+    margin: 8mm;
+  }
+  body {
+    background-color: #ffffff !important;
+    color: #000000 !important;
+    -webkit-print-color-adjust: exact;
+    print-color-adjust: exact;
+  }
+  header, nav, .print\:hidden {
+    display: none !important;
+  }
+}
+

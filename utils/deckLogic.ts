@@ -1,4 +1,5 @@
 import { 
+  DeckConfig,
   DeckCalculationResult, 
   Foot, 
   Rostrum, 
@@ -9,7 +10,9 @@ import {
   Brace,
   Upright,
   Handrail,
-  SwivelConnector
+  SwivelConnector,
+  SnapAdjacentOptions,
+  AdjacencyCheckResult
 } from '../types';
 import { 
   STANDARD_HEIGHTS_MM, 
@@ -23,7 +26,9 @@ import {
  * Bilinear Ground Sampling (PER_FOOT)
  */
 export const getGroundYAt = (x: number, y: number, terrain: TerrainConfig, width: number, depth: number): number => {
-  const u = width ? Math.max(0, Math.min(1, x / width)) : 0;
+  // If x is negative or zero (deck extending left from Bottom-Right origin at 0):
+  // x = -width is Left (u=0), x = 0 is Right (u=1)
+  const u = width ? Math.max(0, Math.min(1, x <= 0 ? (x + width) / width : x / width)) : 1;
   const v = depth ? Math.max(0, Math.min(1, y / depth)) : 0;
   
   const offsets = terrain?.groundOffsets || {} as any;
@@ -340,16 +345,235 @@ export function enforceBracingRostrumSafety(
   return { braces: safeBraces, swivelConnectors: safeSwivels };
 }
 
+export interface PlacedRampGeometry {
+  startX: number;
+  startY: number;
+  side: 'top' | 'bottom' | 'left' | 'right';
+  exactRampWidth: number;
+  exactRampLength: number;
+  landingPads: import('../types').LandingPadConfig[];
+  getElevAtOffset: (offset: number) => number;
+}
+
+/**
+ * Topologically sorts ramps so that parent ramps (and their landing pads)
+ * are placed before any child ramps that branch from them.
+ */
+export function sortRampsByDependency(ramps: import('../types').RampConfig[]): import('../types').RampConfig[] {
+  const result: import('../types').RampConfig[] = [];
+  const placedIds = new Set<string>();
+  const remaining = [...ramps];
+
+  // Pass 1: Ramps starting directly from deck edge
+  for (let i = 0; i < remaining.length; i++) {
+    const r = remaining[i];
+    if (r.startSource !== 'landing' || !r.parentRampId) {
+      result.push(r);
+      placedIds.add(r.id);
+      remaining.splice(i, 1);
+      i--;
+    }
+  }
+
+  // Pass 2: Iteratively add ramps whose parent ramp has already been placed
+  let progress = true;
+  while (remaining.length > 0 && progress) {
+    progress = false;
+    for (let i = 0; i < remaining.length; i++) {
+      const r = remaining[i];
+      if (r.parentRampId && placedIds.has(r.parentRampId)) {
+        result.push(r);
+        placedIds.add(r.id);
+        remaining.splice(i, 1);
+        progress = true;
+        i--;
+      }
+    }
+  }
+
+  // Any remaining ramps (e.g. disconnected or circular references) fallback to the end
+  for (const r of remaining) {
+    result.push(r);
+  }
+
+  return result;
+}
+
+export function resolveRampStartingGeometry(
+  rc: import('../types').RampConfig,
+  exactWidth: number,
+  exactDepth: number,
+  defaultDeckElev: number,
+  placedRampsMap: Map<string, PlacedRampGeometry>
+): {
+  startX: number;
+  startY: number;
+  side: 'top' | 'bottom' | 'left' | 'right';
+  currentElev: number;
+  exactRampWidth: number;
+  exactRampLength: number;
+  rampRowHeights: number[];
+} {
+  const offsetVal = Math.max(0, Number(rc.offset) || 0);
+  const widthVal = Number(rc.width) || 1.2;
+  const lengthVal = Number(rc.length) || 2.4;
+
+  const rampCols = Math.max(1, Math.round(widthVal / 1.2));
+  const exactRampWidth = rampCols * 1.2;
+
+  const rampRowHeights: number[] = [];
+  let remLen = lengthVal;
+  while (remLen >= 2.4 - 0.05) {
+    rampRowHeights.push(2.4);
+    remLen -= 2.4;
+  }
+  if (remLen >= 1.2 - 0.05) {
+    rampRowHeights.push(1.2);
+    remLen -= 1.2;
+  } else if (remLen > 0.1) {
+    rampRowHeights.push(remLen);
+  }
+  const exactRampLength = rampRowHeights.reduce((s, h) => s + h, 0);
+
+  // Check if ramp starts from an open face of a landing pad
+  if (rc.startSource === 'landing' && rc.parentRampId && placedRampsMap.has(rc.parentRampId)) {
+    const parentGeom = placedRampsMap.get(rc.parentRampId)!;
+    const pads = parentGeom.landingPads || [];
+    const pad = pads.find(p => p.id === rc.landingPadId) || pads[0];
+    const padOffset = pad ? Number(pad.offset) || 0 : 0;
+    const padLength = pad ? Number(pad.length) || 1.2 : 1.2;
+    const landingElev = parentGeom.getElevAtOffset(padOffset);
+    const face = rc.landingFace || 'forward';
+
+    let startX = 0;
+    let startY = 0;
+    let side: 'top' | 'bottom' | 'left' | 'right' = 'bottom';
+
+    if (parentGeom.side === 'bottom') {
+      if (face === 'forward') {
+        side = 'bottom';
+        startX = parentGeom.startX + (parentGeom.exactRampWidth - exactRampWidth) / 2;
+        startY = parentGeom.startY - padOffset - padLength;
+      } else if (face === 'left') {
+        side = 'right';
+        startX = parentGeom.startX + parentGeom.exactRampWidth;
+        startY = parentGeom.startY - padOffset - padLength / 2 - exactRampWidth / 2;
+      } else { // right
+        side = 'left';
+        startX = parentGeom.startX;
+        startY = parentGeom.startY - padOffset - padLength / 2 - exactRampWidth / 2;
+      }
+    } else if (parentGeom.side === 'top') {
+      if (face === 'forward') {
+        side = 'top';
+        startX = parentGeom.startX + (parentGeom.exactRampWidth - exactRampWidth) / 2;
+        startY = parentGeom.startY + padOffset + padLength;
+      } else if (face === 'left') {
+        side = 'left';
+        startX = parentGeom.startX;
+        startY = parentGeom.startY + padOffset + padLength / 2 - exactRampWidth / 2;
+      } else { // right
+        side = 'right';
+        startX = parentGeom.startX + parentGeom.exactRampWidth;
+        startY = parentGeom.startY + padOffset + padLength / 2 - exactRampWidth / 2;
+      }
+    } else if (parentGeom.side === 'left') {
+      if (face === 'forward') {
+        side = 'left';
+        startX = parentGeom.startX - padOffset - padLength;
+        startY = parentGeom.startY + (parentGeom.exactRampWidth - exactRampWidth) / 2;
+      } else if (face === 'left') {
+        side = 'bottom';
+        startX = parentGeom.startX - padOffset - padLength / 2 - exactRampWidth / 2;
+        startY = parentGeom.startY;
+      } else { // right
+        side = 'top';
+        startX = parentGeom.startX - padOffset - padLength / 2 - exactRampWidth / 2;
+        startY = parentGeom.startY + parentGeom.exactRampWidth;
+      }
+    } else { // right
+      if (face === 'forward') {
+        side = 'right';
+        startX = parentGeom.startX + padOffset + padLength;
+        startY = parentGeom.startY + (parentGeom.exactRampWidth - exactRampWidth) / 2;
+      } else if (face === 'left') {
+        side = 'top';
+        startX = parentGeom.startX + padOffset + padLength / 2 - exactRampWidth / 2;
+        startY = parentGeom.startY + parentGeom.exactRampWidth;
+      } else { // right
+        side = 'bottom';
+        startX = parentGeom.startX + padOffset + padLength / 2 - exactRampWidth / 2;
+        startY = parentGeom.startY;
+      }
+    }
+
+    return {
+      startX: Math.round(startX * 1000) / 1000,
+      startY: Math.round(startY * 1000) / 1000,
+      side,
+      currentElev: landingElev,
+      exactRampWidth,
+      exactRampLength,
+      rampRowHeights
+    };
+  }
+
+  // Standard: Starts directly from Deck Edge
+  let startX = 0;
+  let startY = 0;
+  const side = rc.side || 'bottom';
+
+  if (side === 'bottom') {
+    startY = 0;
+    if (rc.corner === 'bottomRight' || rc.corner === 'topRight') {
+      startX = exactWidth - offsetVal - exactRampWidth;
+    } else {
+      startX = offsetVal;
+    }
+  } else if (side === 'top') {
+    startY = exactDepth;
+    if (rc.corner === 'bottomRight' || rc.corner === 'topRight') {
+      startX = exactWidth - offsetVal - exactRampWidth;
+    } else {
+      startX = offsetVal;
+    }
+  } else if (side === 'right') {
+    startX = exactWidth;
+    if (rc.corner === 'bottomRight' || rc.corner === 'bottomLeft') {
+      startY = offsetVal;
+    } else {
+      startY = exactDepth - offsetVal - exactRampWidth;
+    }
+  } else if (side === 'left') {
+    startX = 0;
+    if (rc.corner === 'bottomRight' || rc.corner === 'bottomLeft') {
+      startY = offsetVal;
+    } else {
+      startY = exactDepth - offsetVal - exactRampWidth;
+    }
+  }
+
+  return {
+    startX: Math.round(startX * 1000) / 1000,
+    startY: Math.round(startY * 1000) / 1000,
+    side,
+    currentElev: defaultDeckElev,
+    exactRampWidth,
+    exactRampLength,
+    rampRowHeights
+  };
+}
+
 const calculateRakingDeck = (
   deck: import('../types').DeckConfig,
   rawRampConfigs: import('../types').RampConfig[] = [],
   handrailConfigs: import('../types').HandrailConfig[] = []
 ): import('../types').DeckCalculationResult => {
   const targetWidth = Number(deck.width) || 8.4;
-  const tiers = Math.max(1, Math.min(20, Number(deck.tiers) || 8));
+  const tiers = Math.max(1, Number(deck.tiers) || 8);
   const stepHeight = Number(deck.stepHeight) || 0.25; // 250mm step height between tiers
   const stepDepth = Number(deck.stepDepth) || 1.2;    // 1.2m step depth matching standard 1.2m rostrum side
-  const numW = Math.min(Math.max(targetWidth, 1.2), 100);
+  const numW = Math.max(targetWidth, 1.2);
   
   const terrain: import('../types').TerrainConfig = {
     deckHeight: Number(deck.terrain?.deckHeight) || 0,
@@ -1260,92 +1484,65 @@ const calculateRakingDeck = (
     }
   }
 
-  // Generate ramps attached to raking deck
-  const rampConfigs: import('../types').RampConfig[] = rawRampConfigs.map(r => ({
-    ...r,
-    offset: Math.round((Number(r.offset) || 0) / 1.2) * 1.2,
-    width: Number(r.width) || 1.2,
-    length: Number(r.length) || 2.4,
-  }));
+  // Placed ramps tracking for landing pad attachment chaining
+  const placedRakingRampsMap = new Map<string, PlacedRampGeometry>();
 
-  rampConfigs.forEach(rc => {
-    const offsetVal = Math.max(0, Number(rc.offset) || 0);
-    const widthVal = Number(rc.width) || 1.2;
-    const lengthVal = Number(rc.length) || 2.4;
-    const rampCols = Math.max(1, Math.round(widthVal / 1.2));
-    const exactRampWidth = rampCols * 1.2;
+  // Sort ramps topologically so parent ramps are resolved before child ramps that attach to landing pads
+  const sortedRakeRamps: RampConfig[] = sortRampsByDependency(
+    rawRampConfigs.map(r => ({
+      ...r,
+      offset: Math.round((Number(r.offset) || 0) / 1.2) * 1.2,
+      width: Number(r.width) || 1.2,
+      length: Number(r.length) || 2.4,
+    }))
+  );
 
-    let startX = 0;
-    let startY = 0;
-
-    if (rc.side === 'bottom') {
-      startY = 0;
-      if (rc.corner === 'bottomRight' || rc.corner === 'topRight') {
-        startX = exactWidth - offsetVal - exactRampWidth;
-      } else {
-        startX = offsetVal;
-      }
-    } else if (rc.side === 'top') {
-      startY = exactDepth;
-      if (rc.corner === 'bottomRight' || rc.corner === 'topRight') {
-        startX = exactWidth - offsetVal - exactRampWidth;
-      } else {
-        startX = offsetVal;
-      }
-    } else if (rc.side === 'right') {
-      startX = exactWidth;
-      if (rc.corner === 'bottomRight' || rc.corner === 'bottomLeft') {
-        startY = offsetVal;
-      } else {
-        startY = exactDepth - offsetVal - exactRampWidth;
-      }
-    } else if (rc.side === 'left') {
-      startX = 0;
-      if (rc.corner === 'bottomRight' || rc.corner === 'bottomLeft') {
-        startY = offsetVal;
-      } else {
-        startY = exactDepth - offsetVal - exactRampWidth;
-      }
-    }
-
-    const rampRowHeights: number[] = [];
-    let remLen = lengthVal;
-    while (remLen >= 2.4 - 0.05) {
-      rampRowHeights.push(2.4);
-      remLen -= 2.4;
-    }
-    if (remLen >= 1.2 - 0.05) {
-      rampRowHeights.push(1.2);
-      remLen -= 1.2;
-    } else if (remLen > 0.1) {
-      rampRowHeights.push(remLen);
-    }
-    const exactRampLength = rampRowHeights.reduce((s, h) => s + h, 0);
-
-    let currentElev = stepHeight;
+  sortedRakeRamps.forEach(rc => {
+    let defaultElev = stepHeight;
     if (rc.side === 'top') {
-      currentElev = tiers * stepHeight;
+      defaultElev = tiers * stepHeight;
     } else if (rc.side === 'bottom') {
-      currentElev = stepHeight;
+      defaultElev = stepHeight;
     } else {
-      const midY = startY + exactRampWidth / 2;
-      const tierIndex = Math.min(tiers - 1, Math.max(0, Math.floor(midY / stepDepth)));
-      currentElev = (tierIndex + 1) * stepHeight;
+      defaultElev = stepHeight;
+    }
+
+    const resolved = resolveRampStartingGeometry(
+      rc,
+      exactWidth,
+      exactDepth,
+      defaultElev,
+      placedRakingRampsMap
+    );
+
+    const { startX, startY, side, exactRampWidth, exactRampLength, rampRowHeights } = resolved;
+    let currentElev = resolved.currentElev;
+
+    if (rc.startSource !== 'landing') {
+      if (side === 'top') {
+        currentElev = tiers * stepHeight;
+      } else if (side === 'bottom') {
+        currentElev = stepHeight;
+      } else {
+        const midY = startY + exactRampWidth / 2;
+        const tierIndex = Math.min(tiers - 1, Math.max(0, Math.floor(midY / stepDepth)));
+        currentElev = (tierIndex + 1) * stepHeight;
+      }
     }
 
     let farCenterX = 0;
     let farCenterY = 0;
-    if (rc.side === 'bottom') {
+    if (side === 'bottom') {
       farCenterX = startX + exactRampWidth / 2;
-      farCenterY = -exactRampLength;
-    } else if (rc.side === 'top') {
+      farCenterY = startY - exactRampLength;
+    } else if (side === 'top') {
       farCenterX = startX + exactRampWidth / 2;
-      farCenterY = exactDepth + exactRampLength;
-    } else if (rc.side === 'left') {
-      farCenterX = -exactRampLength;
+      farCenterY = startY + exactRampLength;
+    } else if (side === 'left') {
+      farCenterX = startX - exactRampLength;
       farCenterY = startY + exactRampWidth / 2;
-    } else if (rc.side === 'right') {
-      farCenterX = exactWidth + exactRampLength;
+    } else if (side === 'right') {
+      farCenterX = startX + exactRampLength;
       farCenterY = startY + exactRampWidth / 2;
     }
 
@@ -1499,8 +1696,8 @@ const calculateSingleDeck = (
   const targetWidth = Math.max(1.2, Number(deck.width) || 1.2);
   const targetDepth = Math.max(1.2, Number(deck.depth) || 1.2);
   const rawTerrain = deck.terrain;
-  const numW = Math.min(targetWidth, 100);
-  const numD = Math.min(targetDepth, 100);
+  const numW = targetWidth;
+  const numD = targetDepth;
   
   const terrain: TerrainConfig = {
     deckHeight: Number(rawTerrain.deckHeight) || 0,
@@ -1670,93 +1867,41 @@ const calculateSingleDeck = (
   const horizontalRun = 1.2;
 
   const rampDataForBracing: any[] = [];
+  const placedSingleRampsMap = new Map<string, PlacedRampGeometry>();
 
-  rampConfigs.forEach(rc => {
-    const corners = {
-      topLeft: { x: 0, y: exactDepth },
-      topRight: { x: exactWidth, y: exactDepth },
-      bottomLeft: { x: 0, y: 0 },
-      bottomRight: { x: exactWidth, y: 0 }
-    };
-    
-    const offsetVal = Math.max(0, Number(rc.offset) || 0);
-    const widthVal = Number(rc.width) || 1.2;
-    const lengthVal = Number(rc.length) || 2.4;
+  // Sort ramps topologically so parent ramps are resolved before child ramps that attach to landing pads
+  const sortedSingleRamps: RampConfig[] = sortRampsByDependency(rampConfigs);
 
-    const rampCols = Math.max(1, Math.round(widthVal / 1.2));
-    const exactRampWidth = rampCols * 1.2;
+  sortedSingleRamps.forEach(rc => {
+    const resolved = resolveRampStartingGeometry(
+      rc,
+      exactWidth,
+      exactDepth,
+      deckHeight,
+      placedSingleRampsMap
+    );
 
-    let startX = 0;
-    let startY = 0;
+    const { startX, startY, side, exactRampWidth, exactRampLength, rampRowHeights, currentElev } = resolved;
 
-    if (rc.side === 'bottom') {
-      startY = 0;
-      if (rc.corner === 'bottomRight' || rc.corner === 'topRight') {
-        // Origin / right corner: offset shifts leftwards away from bottom right corner
-        startX = exactWidth - offsetVal - exactRampWidth;
-      } else {
-        // Left corner: offset shifts rightwards
-        startX = offsetVal;
-      }
-    } else if (rc.side === 'top') {
-      startY = exactDepth;
-      if (rc.corner === 'bottomRight' || rc.corner === 'topRight') {
-        startX = exactWidth - offsetVal - exactRampWidth;
-      } else {
-        startX = offsetVal;
-      }
-    } else if (rc.side === 'right') {
-      startX = exactWidth;
-      if (rc.corner === 'bottomRight' || rc.corner === 'bottomLeft') {
-        // Origin / bottom corner: offset shifts upwards
-        startY = offsetVal;
-      } else {
-        // Top corner: offset shifts downwards
-        startY = exactDepth - offsetVal - exactRampWidth;
-      }
-    } else if (rc.side === 'left') {
-      startX = 0;
-      if (rc.corner === 'bottomRight' || rc.corner === 'bottomLeft') {
-        startY = offsetVal;
-      } else {
-        startY = exactDepth - offsetVal - exactRampWidth;
-      }
-    }
-    
-    const rampRowHeights: number[] = [];
-    let remLen = lengthVal;
-    while (remLen >= 2.4 - 0.05) {
-      rampRowHeights.push(2.4);
-      remLen -= 2.4;
-    }
-    if (remLen >= 1.2 - 0.05) {
-      rampRowHeights.push(1.2);
-      remLen -= 1.2;
-    } else if (remLen > 0.1) {
-      rampRowHeights.push(remLen);
-    }
-    const exactRampLength = rampRowHeights.reduce((s, h) => s + h, 0);
-
-    const currentElev = deckHeight;
     let farCenterX = 0;
     let farCenterY = 0;
     
-    if (rc.side === 'bottom') {
+    if (side === 'bottom') {
       farCenterX = startX + exactRampWidth / 2;
-      farCenterY = -exactRampLength;
-    } else if (rc.side === 'top') {
+      farCenterY = startY - exactRampLength;
+    } else if (side === 'top') {
       farCenterX = startX + exactRampWidth / 2;
-      farCenterY = exactDepth + exactRampLength;
-    } else if (rc.side === 'left') {
-      farCenterX = -exactRampLength;
+      farCenterY = startY + exactRampLength;
+    } else if (side === 'left') {
+      farCenterX = startX - exactRampLength;
       farCenterY = startY + exactRampWidth / 2;
-    } else if (rc.side === 'right') {
-      farCenterX = exactWidth + exactRampLength;
+    } else if (side === 'right') {
+      farCenterX = startX + exactRampLength;
       farCenterY = startY + exactRampWidth / 2;
     }
     
     const farEndElev = getGroundYAt(farCenterX, farCenterY, terrain, exactWidth, exactDepth);
-    const drop = deckHeight - farEndElev;
+    const drop = Math.max(0, currentElev - farEndElev);
     
     // Calculate segments for landing pads
     const landingPads = rc.landingPads || [];
@@ -1797,7 +1942,7 @@ const calculateSingleDeck = (
     const slopeAngle = totalSlopedLength > 0 ? Math.atan2(drop, totalSlopedLength) * 180 / Math.PI : 0;
 
     rampDataForBracing.push({
-      rc, startX, startY, exactRampWidth, exactRampLength, currentElev, farEndElev, drop, slopeAngle, rampRowHeights, getElevAtOffset
+      rc, startX, startY, side, exactRampWidth, exactRampLength, currentElev, farEndElev, drop, slopeAngle, rampRowHeights, getElevAtOffset
     });
 
     let currentRampY = 0;
@@ -1827,36 +1972,36 @@ const calculateSingleDeck = (
         let rTopLeft = {x: 0, y: 0};
         let rBottomRight = {x: 0, y: 0};
         
-        if (rc.side === 'bottom') {
+        if (side === 'bottom') {
           rTopLeft = { x: startX + xEnd, y: startY - currentRampY };
           rBottomRight = { x: startX + xStart, y: startY - currentRampY - rHeight };
-        } else if (rc.side === 'top') {
+        } else if (side === 'top') {
           rTopLeft = { x: startX + xEnd, y: startY + currentRampY + rHeight };
           rBottomRight = { x: startX + xStart, y: startY + currentRampY };
-        } else if (rc.side === 'left') {
+        } else if (side === 'left') {
           rTopLeft = { x: startX - currentRampY, y: startY + xEnd };
           rBottomRight = { x: startX - currentRampY - rHeight, y: startY + xStart };
-        } else if (rc.side === 'right') {
+        } else if (side === 'right') {
           rTopLeft = { x: startX + currentRampY + rHeight, y: startY + xEnd };
           rBottomRight = { x: startX + currentRampY, y: startY + xStart };
         }
 
         const getPtElev = (px: number, py: number) => {
           let offset = 0;
-          if (rc.side === 'bottom') offset = startY - py;
-          if (rc.side === 'top') offset = py - startY;
-          if (rc.side === 'left') offset = startX - px;
-          if (rc.side === 'right') offset = px - startX;
+          if (side === 'bottom') offset = startY - py;
+          if (side === 'top') offset = py - startY;
+          if (side === 'left') offset = startX - px;
+          if (side === 'right') offset = px - startX;
           return getElevAtOffset(offset);
         };
 
         const startElev = getPtElev(
-          rc.side === 'left' || rc.side === 'right' ? (rc.side === 'left' ? startX - currentRampY : startX + currentRampY) : startX + (xStart + xEnd) / 2,
-          rc.side === 'bottom' || rc.side === 'top' ? (rc.side === 'bottom' ? startY - currentRampY : startY + currentRampY) : startY + (xStart + xEnd) / 2
+          side === 'left' || side === 'right' ? (side === 'left' ? startX - currentRampY : startX + currentRampY) : startX + (xStart + xEnd) / 2,
+          side === 'bottom' || side === 'top' ? (side === 'bottom' ? startY - currentRampY : startY + currentRampY) : startY + (xStart + xEnd) / 2
         );
         const endElev = getPtElev(
-          rc.side === 'left' || rc.side === 'right' ? (rc.side === 'left' ? startX - currentRampY - rHeight : startX + currentRampY + rHeight) : startX + (xStart + xEnd) / 2,
-          rc.side === 'bottom' || rc.side === 'top' ? (rc.side === 'bottom' ? startY - currentRampY - rHeight : startY + currentRampY + rHeight) : startY + (xStart + xEnd) / 2
+          side === 'left' || side === 'right' ? (side === 'left' ? startX - currentRampY - rHeight : startX + currentRampY + rHeight) : startX + (xStart + xEnd) / 2,
+          side === 'bottom' || side === 'top' ? (side === 'bottom' ? startY - currentRampY - rHeight : startY + currentRampY + rHeight) : startY + (xStart + xEnd) / 2
         );
 
         // Determine if this rostrum is flat (landing pad) or sloped
@@ -1870,7 +2015,7 @@ const calculateSingleDeck = (
           width: Math.abs(rBottomRight.x - rTopLeft.x),
           depth: Math.abs(rBottomRight.y - rTopLeft.y),
           rotationY: 0,
-          isRamp: !isFlat, slope: isFlat ? 0 : slopeAngle, side: rc.side,
+          isRamp: !isFlat, slope: isFlat ? 0 : slopeAngle, side: side,
           startElevation: startElev, endElevation: endElev,
           rampMaxRows: rampRowHeights.length
         });
@@ -1906,22 +2051,34 @@ const calculateSingleDeck = (
       }
       currentRampY += rHeight;
     }
+
+    placedSingleRampsMap.set(rc.id, {
+      startX,
+      startY,
+      side,
+      exactRampWidth,
+      exactRampLength,
+      landingPads: rc.landingPads || [],
+      getElevAtOffset
+    });
   });
 
   const feet = Array.from(feetMap.values());
   const errors: string[] = [];
 
   const rampLeadingEdges = rampDataForBracing.map(rd => {
-    if (rd.rc.side === 'bottom') return { axis: 'y', val: rd.startY - rd.exactRampLength, rd };
-    if (rd.rc.side === 'top') return { axis: 'y', val: rd.startY + rd.exactRampLength, rd };
-    if (rd.rc.side === 'left') return { axis: 'x', val: rd.startX - rd.exactRampLength, rd };
-    if (rd.rc.side === 'right') return { axis: 'x', val: rd.startX + rd.exactRampLength, rd };
+    const s = rd.side || rd.rc.side;
+    if (s === 'bottom') return { axis: 'y', val: rd.startY - rd.exactRampLength, rd };
+    if (s === 'top') return { axis: 'y', val: rd.startY + rd.exactRampLength, rd };
+    if (s === 'left') return { axis: 'x', val: rd.startX - rd.exactRampLength, rd };
+    if (s === 'right') return { axis: 'x', val: rd.startX + rd.exactRampLength, rd };
     return null;
   }).filter(Boolean);
 
   const rampPlates: import('../types').RampPlate[] = [];
   
   rampDataForBracing.forEach(rd => {
+    const s = rd.side || rd.rc.side;
     let currentPos = 0;
     while (currentPos < rd.exactRampWidth - 0.05) {
       let pWidth = 1.2;
@@ -1934,19 +2091,19 @@ const calculateSingleDeck = (
       let px = 0, py = 0, rot = 0;
       let depth = 0.6;
       
-      if (rd.rc.side === 'bottom') {
+      if (s === 'bottom') {
          py = rd.startY - rd.exactRampLength - depth / 2;
          px = rd.startX + rd.exactRampWidth - currentPos - pWidth / 2;
          rot = 0;
-      } else if (rd.rc.side === 'top') {
+      } else if (s === 'top') {
          py = rd.startY + rd.exactRampLength + depth / 2;
          px = rd.startX + rd.exactRampWidth - currentPos - pWidth / 2;
          rot = 0;
-      } else if (rd.rc.side === 'left') {
+      } else if (s === 'left') {
          px = rd.startX - rd.exactRampLength - depth / 2;
          py = rd.startY + rd.exactRampWidth - currentPos - pWidth / 2;
          rot = Math.PI / 2;
-      } else if (rd.rc.side === 'right') {
+      } else if (s === 'right') {
          px = rd.startX + rd.exactRampLength + depth / 2;
          py = rd.startY + rd.exactRampWidth - currentPos - pWidth / 2;
          rot = Math.PI / 2;
@@ -2610,35 +2767,37 @@ const calculateSingleDeck = (
       sidesToBuild.push({ sideKey: '2', isLeft: false });
     }
 
+    const side = rampData.side || rc.side;
+
     // Geometry vectors and side position functions
     let fwdDir = { x: 0, y: -1 };
-    let side1Pt = (off: number) => ({ x: startX, y: -off });
-    let side2Pt = (off: number) => ({ x: startX + exactRampWidth, y: -off });
+    let side1Pt = (off: number) => ({ x: startX, y: startY - off });
+    let side2Pt = (off: number) => ({ x: startX + exactRampWidth, y: startY - off });
     let rot1 = Math.PI / 2;
     let rot2 = -Math.PI / 2;
 
-    if (rc.side === 'bottom') {
+    if (side === 'bottom') {
       fwdDir = { x: 0, y: -1 };
-      side1Pt = (off: number) => ({ x: startX, y: -off });
-      side2Pt = (off: number) => ({ x: startX + exactRampWidth, y: -off });
+      side1Pt = (off: number) => ({ x: startX, y: startY - off });
+      side2Pt = (off: number) => ({ x: startX + exactRampWidth, y: startY - off });
       rot1 = Math.PI / 2;
       rot2 = -Math.PI / 2;
-    } else if (rc.side === 'top') {
+    } else if (side === 'top') {
       fwdDir = { x: 0, y: 1 };
-      side1Pt = (off: number) => ({ x: startX + exactRampWidth, y: exactDepth + off });
-      side2Pt = (off: number) => ({ x: startX, y: exactDepth + off });
+      side1Pt = (off: number) => ({ x: startX + exactRampWidth, y: startY + off });
+      side2Pt = (off: number) => ({ x: startX, y: startY + off });
       rot1 = -Math.PI / 2;
       rot2 = Math.PI / 2;
-    } else if (rc.side === 'left') {
+    } else if (side === 'left') {
       fwdDir = { x: -1, y: 0 };
-      side1Pt = (off: number) => ({ x: -off, y: startY + exactRampWidth });
-      side2Pt = (off: number) => ({ x: -off, y: startY });
+      side1Pt = (off: number) => ({ x: startX - off, y: startY + exactRampWidth });
+      side2Pt = (off: number) => ({ x: startX - off, y: startY });
       rot1 = 0;
       rot2 = Math.PI;
-    } else if (rc.side === 'right') {
+    } else if (side === 'right') {
       fwdDir = { x: 1, y: 0 };
-      side1Pt = (off: number) => ({ x: exactWidth + off, y: startY });
-      side2Pt = (off: number) => ({ x: exactWidth + off, y: startY + exactRampWidth });
+      side1Pt = (off: number) => ({ x: startX + off, y: startY });
+      side2Pt = (off: number) => ({ x: startX + off, y: startY + exactRampWidth });
       rot1 = Math.PI;
       rot2 = 0;
     }
@@ -2806,11 +2965,428 @@ const calculateSingleDeck = (
   };
 };
 
+export const getDeckDimensions = (deck: DeckConfig): { width: number; depth: number } => {
+  const rawWidth = Math.max(1.2, Math.round((Number(deck.width) || 4.8) / 1.2) * 1.2);
+  let rawDepth = 4.8;
+  if (deck.type === 'raking') {
+    const tiers = Math.max(1, Number(deck.tiers) || 8);
+    const stepDepth = Number(deck.stepDepth) || 1.2;
+    rawDepth = tiers * stepDepth;
+  } else {
+    rawDepth = Math.max(1.2, Number(deck.depth) || 4.8);
+  }
+
+  // Account for 90-degree / 270-degree rotation where stage footprint along world axes swaps
+  const rot = Math.abs(Number(deck.orientation) || 0) % 360;
+  if (Math.abs(rot - 90) < 5 || Math.abs(rot - 270) < 5) {
+    return { width: rawDepth, depth: rawWidth };
+  }
+  return { width: rawWidth, depth: rawDepth };
+};
+
+/**
+ * Check whether two decks are adjacent to each other within tolerance.
+ */
+export const checkDeckAdjacency = (
+  deckA: DeckConfig,
+  deckB: DeckConfig,
+  tolerance: number = 1.8
+): AdjacencyCheckResult => {
+  const dimA = getDeckDimensions(deckA);
+  const dimB = getDeckDimensions(deckB);
+
+  const maxXA = Number(deckA.originX) || 0;
+  const minXA = maxXA - dimA.width;
+  const minZA = Number(deckA.originZ) || 0;
+  const maxZA = minZA + dimA.depth;
+
+  const maxXB = Number(deckB.originX) || 0;
+  const minXB = maxXB - dimB.width;
+  const minZB = Number(deckB.originZ) || 0;
+  const maxZB = minZB + dimB.depth;
+
+  const distRight = Math.abs(minXB - maxXA);
+  const distLeft = Math.abs(maxXB - minXA);
+  const distFront = Math.abs(minZB - maxZA);
+  const distBack = Math.abs(maxZB - minZA);
+
+  const zOverlap = Math.min(maxZA, maxZB) - Math.max(minZA, minZB);
+  const xOverlap = Math.min(maxXA, maxXB) - Math.max(minXA, minXB);
+
+  if (distRight <= tolerance && zOverlap > -tolerance) {
+    const isAligned = Math.abs(minZA - minZB) % 1.2 < 0.05 || Math.abs(maxZA - maxZB) % 1.2 < 0.05;
+    return { isAdjacent: true, edge: 'right', distance: distRight, aligned: isAligned };
+  }
+  if (distLeft <= tolerance && zOverlap > -tolerance) {
+    const isAligned = Math.abs(minZA - minZB) % 1.2 < 0.05 || Math.abs(maxZA - maxZB) % 1.2 < 0.05;
+    return { isAdjacent: true, edge: 'left', distance: distLeft, aligned: isAligned };
+  }
+  if (distFront <= tolerance && xOverlap > -tolerance) {
+    const isAligned = Math.abs(minXA - minXB) % 1.2 < 0.05 || Math.abs(maxXA - maxXB) % 1.2 < 0.05;
+    return { isAdjacent: true, edge: 'front', distance: distFront, aligned: isAligned };
+  }
+  if (distBack <= tolerance && xOverlap > -tolerance) {
+    const isAligned = Math.abs(minXA - minXB) % 1.2 < 0.05 || Math.abs(maxXA - maxXB) % 1.2 < 0.05;
+    return { isAdjacent: true, edge: 'back', distance: distBack, aligned: isAligned };
+  }
+
+  const minCenterDist = Math.hypot(
+    (minXA + maxXA) / 2 - (minXB + maxXB) / 2,
+    (minZA + maxZA) / 2 - (minZB + maxZB) / 2
+  );
+  return { isAdjacent: false, distance: minCenterDist, aligned: false };
+};
+
+/**
+ * Automatically detects if added decks are placed adjacent to existing ones or overlapping,
+ * and snaps their coordinates to create a unified scaffold array on the 1.2m grid, preventing overlaps.
+ */
+export const snapAdjacentDecks = (
+  decks: DeckConfig[],
+  options?: SnapAdjacentOptions
+): DeckConfig[] => {
+  if (!decks || decks.length === 0) return [];
+  const gridSize = options?.gridSize ?? 1.2;
+  const snapTolerance = options?.snapTolerance ?? 1.8;
+  const preventOverlap = options?.preventOverlap ?? true;
+
+  if (decks.length === 1) {
+    const d0 = decks[0];
+    return [{
+      ...d0,
+      originX: d0.originX === '' ? 0 : Math.round((Number(d0.originX) || 0) / gridSize) * gridSize,
+      originZ: d0.originZ === '' ? 0 : Math.round((Number(d0.originZ) || 0) / gridSize) * gridSize,
+    }];
+  }
+
+  interface PlacedBox {
+    id: string;
+    deck: DeckConfig;
+    minX: number;
+    maxX: number;
+    minZ: number;
+    maxZ: number;
+    width: number;
+    depth: number;
+  }
+
+  const placed: PlacedBox[] = [];
+
+  const checkBoxesOverlap = (b1: { minX: number; maxX: number; minZ: number; maxZ: number }, b2: PlacedBox): boolean => {
+    const overlapX = Math.min(b1.maxX, b2.maxX) - Math.max(b1.minX, b2.minX);
+    const overlapZ = Math.min(b1.maxZ, b2.maxZ) - Math.max(b1.minZ, b2.minZ);
+    return overlapX > 0.04 && overlapZ > 0.04;
+  };
+
+  const isPositionOverlappingAny = (box: { minX: number; maxX: number; minZ: number; maxZ: number }): boolean => {
+    return placed.some(p => checkBoxesOverlap(box, p));
+  };
+
+  const resultDecks: DeckConfig[] = [];
+
+  decks.forEach((deck, idx) => {
+    const dims = getDeckDimensions(deck);
+    const width = dims.width;
+    const depth = dims.depth;
+
+    // If deck is explicitly attached to a parent deck, preserve parent attachment
+    if (deck.parentId && decks.some(d => d.id === deck.parentId)) {
+      resultDecks.push(deck);
+      return;
+    }
+
+    if (idx === 0) {
+      // First deck establishes the primary datum anchor on the modular grid
+      const ox = deck.originX === '' ? 0 : Math.round((Number(deck.originX) || 0) / gridSize) * gridSize;
+      const oz = deck.originZ === '' ? 0 : Math.round((Number(deck.originZ) || 0) / gridSize) * gridSize;
+      const placedDeck: DeckConfig = {
+        ...deck,
+        originX: ox,
+        originZ: oz
+      };
+      placed.push({
+        id: deck.id,
+        deck: placedDeck,
+        minX: ox - width,
+        maxX: ox,
+        minZ: oz,
+        maxZ: oz + depth,
+        width,
+        depth
+      });
+      resultDecks.push(placedDeck);
+      return;
+    }
+
+    // Subsequent decks: check requested position
+    const requestedX = deck.originX === '' ? 0 : Number(deck.originX) || 0;
+    const requestedZ = deck.originZ === '' ? 0 : Number(deck.originZ) || 0;
+
+    const candidateBox = {
+      minX: requestedX - width,
+      maxX: requestedX,
+      minZ: requestedZ,
+      maxZ: requestedZ + depth
+    };
+
+    const hasOverlap = isPositionOverlappingAny(candidateBox);
+
+    // Check if candidate is near any placed deck's edges within snap tolerance
+    let isAdjacent = false;
+
+    for (const p of placed) {
+      const distRight = Math.abs(candidateBox.minX - p.maxX);
+      const distLeft = Math.abs(candidateBox.maxX - p.minX);
+      const distFront = Math.abs(candidateBox.minZ - p.maxZ);
+      const distBack = Math.abs(candidateBox.maxZ - p.minZ);
+
+      const zOverlap = Math.min(candidateBox.maxZ, p.maxZ) - Math.max(candidateBox.minZ, p.minZ);
+      const xOverlap = Math.min(candidateBox.maxX, p.maxX) - Math.max(candidateBox.minX, p.minX);
+
+      if ((distRight <= snapTolerance || distLeft <= snapTolerance) && zOverlap > -snapTolerance) {
+        isAdjacent = true;
+      }
+      if ((distFront <= snapTolerance || distBack <= snapTolerance) && xOverlap > -snapTolerance) {
+        isAdjacent = true;
+      }
+    }
+
+    // If overlap or adjacency detected (or placed at default 0,0 where prior deck already sits)
+    if (hasOverlap || isAdjacent || (requestedX === 0 && requestedZ === 0)) {
+      interface CandidatePos {
+        x: number;
+        z: number;
+        distance: number;
+        sidePriority: number;
+      }
+      const candidates: CandidatePos[] = [];
+
+      for (const p of placed) {
+        // 1. Right of p (candidate's left edge touches p.maxX, so candidate's originX is p.maxX + width)
+        const snapZRight = p.minZ + Math.round((requestedZ - p.minZ) / gridSize) * gridSize;
+        const zShifts = [0, gridSize, -gridSize, 2 * gridSize, -2 * gridSize, 3 * gridSize, -3 * gridSize];
+        for (const zs of zShifts) {
+          const testZ = snapZRight + zs;
+          const box = { minX: p.maxX, maxX: p.maxX + width, minZ: testZ, maxZ: testZ + depth };
+          if (!isPositionOverlappingAny(box)) {
+            candidates.push({
+              x: p.maxX + width,
+              z: testZ,
+              distance: Math.hypot(p.maxX + width - requestedX, testZ - requestedZ),
+              sidePriority: 1 // Right is standard stage span extension
+            });
+          }
+        }
+
+        // 2. Front of p (+Z: Z = p.maxZ)
+        const snapXFront = p.maxX + Math.round((requestedX - p.maxX) / gridSize) * gridSize;
+        const xShifts = [0, gridSize, -gridSize, 2 * gridSize, -2 * gridSize, 3 * gridSize, -3 * gridSize];
+        for (const xs of xShifts) {
+          const testX = snapXFront + xs;
+          const box = { minX: testX - width, maxX: testX, minZ: p.maxZ, maxZ: p.maxZ + depth };
+          if (!isPositionOverlappingAny(box)) {
+            candidates.push({
+              x: testX,
+              z: p.maxZ,
+              distance: Math.hypot(testX - requestedX, p.maxZ - requestedZ),
+              sidePriority: 2 // Front is stage depth extension
+            });
+          }
+        }
+
+        // 3. Left of p (candidate's right edge touches p.minX, so candidate's originX is p.minX)
+        const snapZLeft = p.minZ + Math.round((requestedZ - p.minZ) / gridSize) * gridSize;
+        for (const zs of zShifts) {
+          const testZ = snapZLeft + zs;
+          const box = { minX: p.minX - width, maxX: p.minX, minZ: testZ, maxZ: testZ + depth };
+          if (!isPositionOverlappingAny(box)) {
+            candidates.push({
+              x: p.minX,
+              z: testZ,
+              distance: Math.hypot(p.minX - requestedX, testZ - requestedZ),
+              sidePriority: 3
+            });
+          }
+        }
+
+        // 4. Back of p (-Z: Z = p.minZ - depth)
+        const snapXBack = p.maxX + Math.round((requestedX - p.maxX) / gridSize) * gridSize;
+        for (const xs of xShifts) {
+          const testX = snapXBack + xs;
+          const box = { minX: testX - width, maxX: testX, minZ: p.minZ - depth, maxZ: p.minZ };
+          if (!isPositionOverlappingAny(box)) {
+            candidates.push({
+              x: testX,
+              z: p.minZ,
+              distance: Math.hypot(testX - requestedX, p.minZ - depth - requestedZ),
+              sidePriority: 4
+            });
+          }
+        }
+      }
+
+      if (candidates.length > 0) {
+        candidates.sort((a, b) => {
+          if (Math.abs(a.distance - b.distance) > 0.05) {
+            return a.distance - b.distance;
+          }
+          return a.sidePriority - b.sidePriority;
+        });
+
+        const best = candidates[0];
+        const snappedDeck: DeckConfig = {
+          ...deck,
+          originX: Math.round(best.x * 1000) / 1000,
+          originZ: Math.round(best.z * 1000) / 1000
+        };
+        placed.push({
+          id: deck.id,
+          deck: snappedDeck,
+          minX: best.x,
+          maxX: best.x + width,
+          minZ: best.z,
+          maxZ: best.z + depth,
+          width,
+          depth
+        });
+        resultDecks.push(snappedDeck);
+        return;
+      }
+    }
+
+    // Isolated placement: Snap to the global 1.2m modular grid
+    let finalX = Math.round(requestedX / gridSize) * gridSize;
+    let finalZ = Math.round(requestedZ / gridSize) * gridSize;
+
+    let testFinalBox = { minX: finalX, maxX: finalX + width, minZ: finalZ, maxZ: finalZ + depth };
+    if (preventOverlap && isPositionOverlappingAny(testFinalBox)) {
+      let offsetStep = 1;
+      while (isPositionOverlappingAny(testFinalBox) && offsetStep < 30) {
+        const testX = finalX + offsetStep * gridSize;
+        testFinalBox = { minX: testX, maxX: testX + width, minZ: finalZ, maxZ: finalZ + depth };
+        if (!isPositionOverlappingAny(testFinalBox)) {
+          finalX = testX;
+          break;
+        }
+        offsetStep++;
+      }
+    }
+
+    const snappedDeck: DeckConfig = {
+      ...deck,
+      originX: Math.round(finalX * 1000) / 1000,
+      originZ: Math.round(finalZ * 1000) / 1000
+    };
+    placed.push({
+      id: deck.id,
+      deck: snappedDeck,
+      minX: finalX,
+      maxX: finalX + width,
+      minZ: finalZ,
+      maxZ: finalZ + depth,
+      width,
+      depth
+    });
+    resultDecks.push(snappedDeck);
+  });
+
+  return resultDecks;
+};
+
+/**
+ * Convenient aliases matching different naming conventions from user requests.
+ */
+export const detectAndSnapAdjacentDecks = snapAdjacentDecks;
+
+/**
+ * Helper function that automatically detects if an added deck is placed adjacent to existing ones
+ * and snaps its coordinates to create a unified scaffold array, preventing overlaps.
+ */
+export const snapAddedDeck = (
+  newDeck: DeckConfig,
+  existingDecks: DeckConfig[],
+  options?: SnapAdjacentOptions
+): DeckConfig => {
+  if (!existingDecks || existingDecks.length === 0) {
+    const gridSize = options?.gridSize ?? 1.2;
+    return {
+      ...newDeck,
+      originX: newDeck.originX === '' ? 0 : Math.round((Number(newDeck.originX) || 0) / gridSize) * gridSize,
+      originZ: newDeck.originZ === '' ? 0 : Math.round((Number(newDeck.originZ) || 0) / gridSize) * gridSize
+    };
+  }
+
+  const allDecks = [...existingDecks, newDeck];
+  const snappedAll = snapAdjacentDecks(allDecks, options);
+  return snappedAll[snappedAll.length - 1];
+};
+
+/**
+ * Alias for snapAddedDeck.
+ */
+export const snapDeckToAdjacent = snapAddedDeck;
+
+/**
+ * Snaps a specific deck to its nearest adjacent neighbour in a multi-deck assembly.
+ */
+export const snapDeckToNearestAdjacent = (
+  deckId: string,
+  decks: DeckConfig[],
+  options?: SnapAdjacentOptions
+): DeckConfig[] => {
+  const targetDeck = decks.find(d => d.id === deckId);
+  if (!targetDeck) return decks;
+  const otherDecks = decks.filter(d => d.id !== deckId);
+  const snapped = snapAddedDeck(targetDeck, otherDecks, options);
+  return decks.map(d => d.id === deckId ? snapped : d);
+};
+
+/**
+ * Check for any overlapping pairs of decks.
+ */
+export const checkDeckOverlaps = (
+  decks: DeckConfig[]
+): Array<{ deckAId: string; deckBId: string; overlapArea: number }> => {
+  const overlaps: Array<{ deckAId: string; deckBId: string; overlapArea: number }> = [];
+  for (let i = 0; i < decks.length; i++) {
+    const da = decks[i];
+    const dimA = getDeckDimensions(da);
+    const maxXA = Number(da.originX) || 0;
+    const minXA = maxXA - dimA.width;
+    const minZA = Number(da.originZ) || 0;
+    const maxZA = minZA + dimA.depth;
+
+    for (let j = i + 1; j < decks.length; j++) {
+      const db = decks[j];
+      const dimB = getDeckDimensions(db);
+      const maxXB = Number(db.originX) || 0;
+      const minXB = maxXB - dimB.width;
+      const minZB = Number(db.originZ) || 0;
+      const maxZB = minZB + dimB.depth;
+
+      const overlapW = Math.min(maxXA, maxXB) - Math.max(minXA, minXB);
+      const overlapD = Math.min(maxZA, maxZB) - Math.max(minZA, minZB);
+
+      if (overlapW > 0.04 && overlapD > 0.04) {
+        overlaps.push({
+          deckAId: da.id,
+          deckBId: db.id,
+          overlapArea: Math.round(overlapW * overlapD * 100) / 100
+        });
+      }
+    }
+  }
+  return overlaps;
+};
+
 export const calculateDecks = (
-  decks: import('../types').DeckConfig[],
+  rawDecks: import('../types').DeckConfig[],
   rampConfigs: import('../types').RampConfig[] = [],
   handrailConfigs: import('../types').HandrailConfig[] = []
 ): import('../types').DeckCalculationResult => {
+  // Automatically snap adjacent decks onto unified 1.2m modular grid & prevent overlaps
+  const decks = snapAdjacentDecks(rawDecks);
+
   const result: import('../types').DeckCalculationResult = {
     rostrums: [],
     feet: [],
@@ -2832,6 +3408,8 @@ export const calculateDecks = (
   };
 
   const resolvedDecks = new Map<string, { originX: number, originZ: number, orientation: number }>();
+  const unifiedFeetMap = new Map<string, import('../types').Foot>();
+  const unifiedLedgerSet = new Set<string>();
 
   const resolveDeck = (deckId: string): { originX: number, originZ: number, orientation: number } => {
     if (resolvedDecks.has(deckId)) return resolvedDecks.get(deckId)!;
@@ -2871,11 +3449,11 @@ export const calculateDecks = (
         localZ = -cDepth;
         break;
       case 'right':
-        localX = pWidth;
+        localX = cWidth;
         localZ = offset;
         break;
       case 'left':
-        localX = -cWidth;
+        localX = -pWidth;
         localZ = offset;
         break;
       default:
@@ -2913,15 +3491,22 @@ export const calculateDecks = (
     const cos = Math.cos(rad);
     const sin = Math.sin(rad);
     
+    const exactWidth = singleResult.dimensions.width;
+
+    // Origin datum is anchored at the Bottom-Right corner: (x = exactWidth, y = 0) maps to (originX, originZ)
     const transformPoint = (x: number, y: number) => {
-      const tx = x * cos - y * sin + originX;
-      const ty = x * sin + y * cos + originZ;
+      const relX = x - exactWidth;
+      const relY = y;
+      const tx = relX * cos - relY * sin + originX;
+      const ty = relX * sin + relY * cos + originZ;
       return { x: tx, y: ty };
     };
 
     const transform3D = (p: {x: number, y: number, z: number}) => {
-      const tx = p.x * cos - p.y * sin + originX;
-      const ty = p.x * sin + p.y * cos + originZ;
+      const relX = p.x - exactWidth;
+      const relY = p.y;
+      const tx = relX * cos - relY * sin + originX;
+      const ty = relX * sin + relY * cos + originZ;
       return { x: tx, y: ty, z: p.z };
     };
 
@@ -2931,33 +3516,56 @@ export const calculateDecks = (
       const cx = (r.topLeft.x + r.bottomRight.x) / 2;
       const cy = (r.topLeft.y + r.bottomRight.y) / 2;
       const tc = transformPoint(cx, cy);
+      const ttl = transformPoint(r.topLeft.x, r.topLeft.y);
+      const tbr = transformPoint(r.bottomRight.x, r.bottomRight.y);
       
       result.rostrums.push({
         ...r,
         id: `${deck.id}_${r.id}`,
         center: tc,
+        topLeft: ttl,
+        bottomRight: tbr,
         width: w,
         depth: d,
         rotationY: rad
       });
     });
 
+    // Unify shared standards at adjacent deck boundaries
     singleResult.feet.forEach(f => {
       const tp = transformPoint(f.position.x, f.position.y);
-      result.feet.push({
-        ...f,
-        id: `${deck.id}_${f.id}`,
-        position: tp
-      });
+      const k = `${tp.x.toFixed(3)},${tp.y.toFixed(3)}`;
+      if (unifiedFeetMap.has(k)) {
+        const existing = unifiedFeetMap.get(k)!;
+        if (f.targetElevation > existing.targetElevation) {
+          existing.targetElevation = f.targetElevation;
+          if (f.assembly) existing.assembly = f.assembly;
+        }
+      } else {
+        const footObj: import('../types').Foot = {
+          ...f,
+          id: `${deck.id}_${f.id}`,
+          position: tp
+        };
+        unifiedFeetMap.set(k, footObj);
+        result.feet.push(footObj);
+      }
     });
 
+    // Deduplicate shared ledgers along adjacent deck boundaries
     singleResult.ledgers.forEach(l => {
-      result.ledgers.push({
-        ...l,
-        id: `${deck.id}_${l.id}`,
-        position: transform3D(l.position),
-        rotation: { ...l.rotation, z: l.rotation.z + rad }
-      });
+      const p3d = transform3D(l.position);
+      const rotZ = l.rotation.z + rad;
+      const lKey = `${p3d.x.toFixed(2)},${p3d.y.toFixed(2)},${p3d.z.toFixed(2)},${(rotZ % Math.PI).toFixed(2)}`;
+      if (!unifiedLedgerSet.has(lKey)) {
+        unifiedLedgerSet.add(lKey);
+        result.ledgers.push({
+          ...l,
+          id: `${deck.id}_${l.id}`,
+          position: p3d,
+          rotation: { ...l.rotation, z: rotZ }
+        });
+      }
     });
 
     singleResult.braces.forEach(b => {
@@ -3012,15 +3620,20 @@ export const calculateDecks = (
       });
     }
 
-    result.calculatedFeetCount += singleResult.calculatedFeetCount;
     result.fullRostrumsCount += singleResult.fullRostrumsCount;
     result.halfRostrumsCount += singleResult.halfRostrumsCount;
-    result.ledgerCounts.blueBlue += singleResult.ledgerCounts.blueBlue;
-    result.ledgerCounts.blueBlack += singleResult.ledgerCounts.blueBlack;
-    result.ledgerCounts.blackBlack += singleResult.ledgerCounts.blackBlack;
     result.totalArea += singleResult.totalArea;
     if (singleResult.status !== 'SOLVED') result.status = singleResult.status;
     result.errors.push(...singleResult.errors);
+  });
+
+  // Accurate physical counts for the unified scaffold array
+  result.calculatedFeetCount = result.feet.length;
+  result.ledgerCounts = { blueBlue: 0, blueBlack: 0, blackBlack: 0 };
+  result.ledgers.forEach(l => {
+    if (l.color === '#1e3a8a') result.ledgerCounts.blueBlue++;
+    else if (l.color === '#22c55e') result.ledgerCounts.blueBlack++;
+    else if (l.color === '#0f172a') result.ledgerCounts.blackBlack++;
   });
 
   // Strict Safety Constraint: Bracing and swivels must NEVER protrude any rostrum at any point

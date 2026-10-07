@@ -1,5 +1,6 @@
 import React, { useState, useEffect, useMemo, useCallback, Suspense, lazy } from 'react';
-import { calculateDecks } from './utils/deckLogic';
+import { motion, AnimatePresence } from 'framer-motion';
+import { calculateDecks, snapAddedDeck } from './utils/deckLogic';
 const DeckVisualizer3D = lazy(() => import('./components/DeckVisualizer3D').then(module => ({ default: module.DeckVisualizer3D })));
 import { SpecificationsPanel } from './components/SpecificationsPanel';
 import { BillOfMaterials } from './components/BillOfMaterials';
@@ -23,7 +24,8 @@ import {
   ShieldCheck,
   FolderCheck,
   Building2,
-  CloudDownload
+  CloudDownload,
+  Printer
 } from 'lucide-react';
 import { 
   getActiveProjectFromLocalStorage, 
@@ -38,6 +40,8 @@ import { ErrorBoundary } from './components/ErrorBoundary';
 import { ProjectStatsOverview } from './components/ProjectStatsOverview';
 import { NewProjectModal } from './components/NewProjectModal';
 import { OtaUpdateModal } from './components/OtaUpdateModal';
+import { Export3dDrawingModal } from './components/Export3dDrawingModal';
+import { exportBillOfMaterialsPdf } from './utils/pdfExport';
 import { checkForNetlifyUpdate } from './utils/otaManager';
 
 export const INITIAL_DECK: DeckConfig = {
@@ -57,6 +61,45 @@ export const INITIAL_DECK: DeckConfig = {
 
 export type AppScreen = 'stats' | 'specs' | 'model' | 'bom';
 
+interface ScreenNavOption {
+  id: AppScreen;
+  label: string;
+  shortLabel: string;
+  icon: React.ComponentType<{ size?: number; className?: string }>;
+  tooltip: string;
+}
+
+const SCREENS: ScreenNavOption[] = [
+  { 
+    id: 'stats', 
+    label: 'Project Stats', 
+    shortLabel: 'Stats', 
+    icon: FolderCheck, 
+    tooltip: 'Clean Project Overview, Site Details & Photos' 
+  },
+  { 
+    id: 'specs', 
+    label: 'Specifications', 
+    shortLabel: 'Specs', 
+    icon: Sliders, 
+    tooltip: 'Parametric Specifications Workbench' 
+  },
+  { 
+    id: 'model', 
+    label: '3D Viewport', 
+    shortLabel: '3D View', 
+    icon: Box, 
+    tooltip: 'Full-screen 3D CAD Viewport' 
+  },
+  { 
+    id: 'bom', 
+    label: 'Schedule & BOM', 
+    shortLabel: 'BOM', 
+    icon: ClipboardList, 
+    tooltip: 'Parts Schedule & Structural Analysis' 
+  },
+];
+
 const App: React.FC = () => {
   const [currentScreen, setCurrentScreen] = useState<AppScreen>('model');
   const [currentProject, setCurrentProject] = useState<Project | null>(null);
@@ -70,6 +113,7 @@ const App: React.FC = () => {
   const [isNewProjectModalOpen, setIsNewProjectModalOpen] = useState(false);
   const [isOtaModalOpen, setIsOtaModalOpen] = useState(false);
   const [otaUpdateAvailable, setOtaUpdateAvailable] = useState(false);
+  const [isExport3dModalOpen, setIsExport3dModalOpen] = useState(false);
 
   // Quick feedback toast
   const [toastMessage, setToastMessage] = useState<string | null>(null);
@@ -266,8 +310,8 @@ const App: React.FC = () => {
           groundOffsets: { origin: 0, widthEnd: 0, depthEnd: 0, diagonal: 0 }
         }
       };
-      setDecks(prev => [...prev, rakingDeck]);
-      showToast('Added Raking Grandstand (12.0m × 10.0m)');
+      setDecks(prev => [...prev, snapAddedDeck(rakingDeck, prev)]);
+      showToast('Added Raking Grandstand (12.0m × 10.0m) - Snapped Adjacent');
     } else if (preset === 'vip') {
       const vipDeck: DeckConfig = {
         id: `deck_${now}`,
@@ -283,8 +327,8 @@ const App: React.FC = () => {
           groundOffsets: { origin: 0, widthEnd: 0, depthEnd: 0, diagonal: 0 }
         }
       };
-      setDecks(prev => [...prev, vipDeck]);
-      showToast('Added VIP Platform (4.8m × 3.6m)');
+      setDecks(prev => [...prev, snapAddedDeck(vipDeck, prev)]);
+      showToast('Added VIP Platform (4.8m × 3.6m) - Snapped Adjacent');
     } else {
       const stdDeck: DeckConfig = {
         id: `deck_${now}`,
@@ -300,8 +344,8 @@ const App: React.FC = () => {
           groundOffsets: { origin: 0, widthEnd: 0, depthEnd: 0, diagonal: 0 }
         }
       };
-      setDecks(prev => [...prev, stdDeck]);
-      showToast('Added Standard Main Stage (10.8m × 10.8m)');
+      setDecks(prev => [...prev, snapAddedDeck(stdDeck, prev)]);
+      showToast('Added Standard Main Stage (10.8m × 10.8m) - Snapped Adjacent');
     }
   };
 
@@ -382,58 +426,48 @@ const App: React.FC = () => {
         </div>
 
         {/* Center: Multi-Screen Switcher (Tactile Segmented Pill) - Desktop Only */}
-        <nav className="hidden sm:flex items-center bg-[#f0f8ff] p-1 rounded-lg border border-[#b8d4e3] shadow-xs absolute left-1/2 -translate-x-1/2">
-          <button
-            onClick={() => setCurrentScreen('stats')}
-            className={`flex items-center gap-1.5 px-3 py-2 rounded-md text-xs font-mono font-medium transition-all ${
-              currentScreen === 'stats'
-                ? 'bg-[#ffffff] text-[#0284c7] border border-[#8ebdd4] shadow-xs font-bold'
-                : 'text-[#475569] hover:text-[#0f172a] hover:bg-[#e0f2fe]/60 border border-transparent'
-            }`}
-            title="Clean Project Overview, Site Details & Photos"
-          >
-            <FolderCheck size={13} className={currentScreen === 'stats' ? 'text-[#0284c7]' : 'text-[#7e8b9f]'} />
-            <span>Project Stats</span>
-          </button>
-
-          <button
-            onClick={() => setCurrentScreen('specs')}
-            className={`flex items-center gap-1.5 px-3 py-2 rounded-md text-xs font-mono font-medium transition-all ${
-              currentScreen === 'specs'
-                ? 'bg-[#ffffff] text-[#0284c7] border border-[#8ebdd4] shadow-xs font-bold'
-                : 'text-[#475569] hover:text-[#0f172a] hover:bg-[#e0f2fe]/60 border border-transparent'
-            }`}
-            title="Parametric Specifications Workbench"
-          >
-            <Sliders size={13} className={currentScreen === 'specs' ? 'text-[#0284c7]' : 'text-[#7e8b9f]'} />
-            <span>Specifications</span>
-          </button>
-
-          <button
-            onClick={() => setCurrentScreen('model')}
-            className={`flex items-center gap-1.5 px-3 py-2 rounded-md text-xs font-mono font-medium transition-all ${
-              currentScreen === 'model'
-                ? 'bg-[#ffffff] text-[#0284c7] border border-[#8ebdd4] shadow-xs font-bold'
-                : 'text-[#475569] hover:text-[#0f172a] hover:bg-[#e0f2fe]/60 border border-transparent'
-            }`}
-            title="Full-screen 3D CAD Viewport"
-          >
-            <Box size={13} className={currentScreen === 'model' ? 'text-[#0284c7]' : 'text-[#7e8b9f]'} />
-            <span>3D Viewport</span>
-          </button>
-
-          <button
-            onClick={() => setCurrentScreen('bom')}
-            className={`flex items-center gap-1.5 px-3 py-2 rounded-md text-xs font-mono font-medium transition-all ${
-              currentScreen === 'bom'
-                ? 'bg-[#ffffff] text-[#0284c7] border border-[#8ebdd4] shadow-xs font-bold'
-                : 'text-[#475569] hover:text-[#0f172a] hover:bg-[#e0f2fe]/60 border border-transparent'
-            }`}
-            title="Parts Schedule & Structural Analysis"
-          >
-            <ClipboardList size={13} className={currentScreen === 'bom' ? 'text-[#0284c7]' : 'text-[#7e8b9f]'} />
-            <span>Schedule & BOM</span>
-          </button>
+        <nav 
+          aria-label="Screen switcher"
+          className="hidden sm:flex items-center bg-[#f0f8ff] p-1 rounded-lg border border-[#b8d4e3] shadow-xs absolute left-1/2 -translate-x-1/2"
+        >
+          {SCREENS.map((screen) => {
+            const isActive = currentScreen === screen.id;
+            const Icon = screen.icon;
+            return (
+              <motion.button
+                key={screen.id}
+                onClick={() => setCurrentScreen(screen.id)}
+                whileHover={{ scale: 1.02 }}
+                whileTap={{ scale: 0.98 }}
+                className={`relative flex items-center gap-1.5 px-3 py-1.5 rounded-md text-xs font-mono font-medium transition-colors cursor-pointer select-none ${
+                  isActive
+                    ? 'text-[#0284c7] font-bold'
+                    : 'text-[#475569] hover:text-[#0f172a]'
+                }`}
+                title={screen.tooltip}
+              >
+                {isActive && (
+                  <motion.div
+                    layoutId="header-active-screen-indicator"
+                    className="absolute inset-0 bg-[#ffffff] border border-[#8ebdd4] rounded-md shadow-xs z-0"
+                    transition={{
+                      type: 'spring',
+                      stiffness: 450,
+                      damping: 32,
+                      mass: 0.8
+                    }}
+                  />
+                )}
+                <Icon
+                  size={13}
+                  className={`relative z-10 transition-colors duration-150 ${
+                    isActive ? 'text-[#0284c7]' : 'text-[#7e8b9f]'
+                  }`}
+                />
+                <span className="relative z-10">{screen.label}</span>
+              </motion.button>
+            );
+          })}
         </nav>
 
         {/* Right: Project Quick Actions with Primary Hierarchy */}
@@ -457,6 +491,16 @@ const App: React.FC = () => {
           >
             <FolderOpen size={13} className="text-[#0284c7]" />
             <span className="hidden md:inline">Projects</span>
+          </button>
+
+          {/* Export / Print 3D Drawing & Checkpoints for Crew */}
+          <button
+            onClick={() => setIsExport3dModalOpen(true)}
+            className="flex items-center gap-1.5 px-2.5 md:px-3 py-2 bg-[#ffffff] hover:bg-[#e0f2fe] text-[#0284c7] border border-[#8ebdd4] hover:border-[#0284c7] rounded-md text-xs font-mono font-bold transition-all shadow-xs"
+            title="Export 3D Drawing & Crucial Rigging Checkpoints for Crew"
+          >
+            <Printer size={13} className="text-[#0284c7]" />
+            <span className="hidden sm:inline">3D Drawing</span>
           </button>
 
           {/* Netlify OTA Updates */}
@@ -508,222 +552,257 @@ const App: React.FC = () => {
 
       {/* MULTI-SCREEN MAIN WORKSPACE */}
       <main className="flex-1 relative overflow-hidden flex flex-col">
+        <AnimatePresence mode="wait">
+          {/* SCREEN 0: CLEAN PROJECT STATS & SITE OVERVIEW */}
+          {currentScreen === 'stats' && (
+            <motion.div
+              key="stats"
+              initial={{ opacity: 0, y: 8 }}
+              animate={{ opacity: 1, y: 0 }}
+              exit={{ opacity: 0, y: -8 }}
+              transition={{ duration: 0.2, ease: [0.22, 1, 0.36, 1] }}
+              className="w-full h-full flex flex-col overflow-hidden"
+            >
+              <ProjectStatsOverview
+                currentProject={currentProject}
+                onUpdateProject={(updated) => {
+                  setCurrentProject(updated);
+                  showToast('Project details updated');
+                }}
+                calculationResult={calculationResult}
+                decks={decks}
+                ramps={ramps}
+                handrails={handrails}
+                onNavigateScreen={setCurrentScreen}
+                onAddDefaultDeck={handleAddDefaultDeck}
+                onSaveProject={handleQuickSave}
+                onOpenNewProjectModal={() => setIsNewProjectModalOpen(true)}
+                onOpenOtaModal={() => setIsOtaModalOpen(true)}
+              />
+            </motion.div>
+          )}
 
-        {/* SCREEN 0: CLEAN PROJECT STATS & SITE OVERVIEW */}
-        {currentScreen === 'stats' && (
-          <ProjectStatsOverview
-            currentProject={currentProject}
-            onUpdateProject={(updated) => {
-              setCurrentProject(updated);
-              showToast('Project details updated');
-            }}
-            calculationResult={calculationResult}
-            decks={decks}
-            ramps={ramps}
-            handrails={handrails}
-            onNavigateScreen={setCurrentScreen}
-            onAddDefaultDeck={handleAddDefaultDeck}
-            onSaveProject={handleQuickSave}
-            onOpenNewProjectModal={() => setIsNewProjectModalOpen(true)}
-            onOpenOtaModal={() => setIsOtaModalOpen(true)}
-          />
-        )}
-
-        {/* SCREEN 1: FULL SPECIFICATIONS WORKBENCH */}
-        {currentScreen === 'specs' && (
-          <div className="w-full h-full overflow-y-auto bg-[#f0f8ff]">
-            <div className="max-w-4xl mx-auto py-6 px-4 md:px-8">
-              
-              {/* Studio screen helper banner */}
-              <div className="mb-5 flex items-center justify-between p-3.5 bg-[#ffffff] border border-[#b8d4e3] rounded-xl">
-                <div className="flex items-center gap-3">
-                  <div className="w-8 h-8 rounded-lg bg-[#e0f2fe] border border-[#bae6fd] flex items-center justify-center text-[#0284c7]">
-                    <Sliders size={16} />
+          {/* SCREEN 1: FULL SPECIFICATIONS WORKBENCH */}
+          {currentScreen === 'specs' && (
+            <motion.div
+              key="specs"
+              initial={{ opacity: 0, y: 8 }}
+              animate={{ opacity: 1, y: 0 }}
+              exit={{ opacity: 0, y: -8 }}
+              transition={{ duration: 0.2, ease: [0.22, 1, 0.36, 1] }}
+              className="w-full h-full overflow-y-auto bg-[#f0f8ff]"
+            >
+              <div className="max-w-4xl mx-auto py-6 px-4 md:px-8">
+                
+                {/* Studio screen helper banner */}
+                <div className="mb-5 flex items-center justify-between p-3.5 bg-[#ffffff] border border-[#b8d4e3] rounded-xl">
+                  <div className="flex items-center gap-3">
+                    <div className="w-8 h-8 rounded-lg bg-[#e0f2fe] border border-[#bae6fd] flex items-center justify-center text-[#0284c7]">
+                      <Sliders size={16} />
+                    </div>
+                    <div>
+                      <span className="text-xs font-mono font-bold text-[#0f172a] block">Parametric Specifications Workbench</span>
+                      <span className="text-sm text-[#7e8b9f] block">Dedicated parameter tuning with maximum editing space</span>
+                    </div>
                   </div>
-                  <div>
-                    <span className="text-xs font-mono font-bold text-[#0f172a] block">Parametric Specifications Workbench</span>
-                    <span className="text-sm text-[#7e8b9f] block">Dedicated parameter tuning with maximum editing space</span>
-                  </div>
-                </div>
-                <button
-                  onClick={() => setCurrentScreen('model')}
-                  className="flex items-center gap-1.5 px-3 py-2 bg-[#e0f2fe] hover:bg-[#0284c7] text-[#0284c7] hover:text-white border border-[#bae6fd] rounded-md text-xs font-mono font-semibold transition-all"
-                >
-                  <span>3D Viewport</span>
-                  <ArrowRight size={12} />
-                </button>
-              </div>
-
-              <div className="bg-[#ffffff] rounded-xl shadow-xl border border-[#b8d4e3] overflow-hidden">
-                <SpecificationsPanel 
-                  decks={decks} onDecksChange={setDecks} 
-                  ramps={ramps} onRampsChange={setRamps} 
-                  handrails={handrails} onHandrailsChange={setHandrails} 
-                  onComplete={() => setCurrentScreen('model')} 
-                />
-              </div>
-            </div>
-          </div>
-        )}
-
-        {/* SCREEN 2: FULL 3D MODEL STUDIO (ONLY ACTIVE/RENDERED WHEN IN 3D SCREEN) */}
-        {currentScreen === 'model' && (
-          <div className="w-full h-full relative overflow-hidden bg-[#ffffff]">
-            <ErrorBoundary fallbackTitle="3D Stage CAD Viewport Restored">
-              <Suspense fallback={<div className="flex w-full h-full items-center justify-center bg-[#f0f8ff] text-[#0284c7] font-mono text-sm tracking-wider">LOADING 3D ENGINE...</div>}>
-                <DeckVisualizer3D 
-                  data={calculationResult} 
-                  onSelect={handleSelection} 
-                  selectionId={selection?.id || null} 
-                  layers={layers}
-                  active={is3DActive}
-                />
-              </Suspense>
-            </ErrorBoundary>
-
-            {/* Decluttered Minimalist HUD Status Pill */}
-            <div className="absolute left-1/2 -translate-x-1/2 bottom-3 z-20 flex items-center gap-3 px-3 py-2 bg-white/90 backdrop-blur-md rounded-full border border-[#bae6fd] shadow-md pointer-events-auto text-xs font-mono text-[#0f172a]">
-              <div className="flex items-center gap-1.5">
-                <span className={`w-1.5 h-1.5 rounded-full ${calculationResult.status === 'SOLVED' ? 'bg-emerald-500' : 'bg-[#0284c7]'}`}></span>
-                <span className="font-semibold text-[#0f172a]">
-                  {calculationResult.status === 'SOLVED' ? 'Solved' : 'Review'}
-                </span>
-              </div>
-              <span className="text-[#94a3b8]">|</span>
-              <span>{calculationResult.totalArea.toFixed(1)} m²</span>
-              <span className="text-[#94a3b8]">|</span>
-              <span>{calculationResult.calculatedFeetCount} Standards</span>
-            </div>
-
-            {/* Decluttered Layer Visibility Toggle Button with Small Icon */}
-            <div className="absolute right-3 top-3 z-20">
-              <button
-                onClick={() => setIsLayersMenuOpen(!isLayersMenuOpen)}
-                className="flex items-center gap-1.5 px-2.5 py-2 bg-white/90 backdrop-blur-md border border-[#bae6fd] rounded-md text-xs font-mono text-[#334155] hover:text-[#0284c7] hover:bg-[#f0f8ff] shadow-sm transition-all"
-                title="Toggle Layers"
-              >
-                <Layers size={12} className="text-[#0284c7]" />
-                <span>Layers</span>
-              </button>
-
-              {isLayersMenuOpen && (
-                <div className="absolute right-0 top-8 bg-white/95 backdrop-blur-md border border-[#bae6fd] p-2.5 rounded-lg flex flex-col gap-2 w-44 shadow-2xl animate-in fade-in duration-150">
-                  <span className="text-xs font-mono font-bold text-[#0f172a] uppercase tracking-wider border-b border-[#e2e8f0] pb-1">
-                    Scaffold Layers
-                  </span>
-                  <label className="flex items-center gap-2 cursor-pointer text-xs font-mono text-[#334155] hover:text-[#0284c7]">
-                    <input type="checkbox" checked={layers.structure} onChange={e => setLayers({...layers, structure: e.target.checked})} className="rounded bg-[#f0f8ff] border-[#8ebdd4] text-[#0284c7] accent-[#0284c7] w-3 h-3" />
-                    <span>Leg Structure</span>
-                  </label>
-                  <label className="flex items-center gap-2 cursor-pointer text-xs font-mono text-[#334155] hover:text-[#0284c7]">
-                    <input type="checkbox" checked={layers.ledgers} onChange={e => setLayers({...layers, ledgers: e.target.checked})} className="rounded bg-[#f0f8ff] border-[#8ebdd4] text-[#0284c7] accent-[#0284c7] w-3 h-3" />
-                    <span>Ledgers</span>
-                  </label>
-                  <label className="flex items-center gap-2 cursor-pointer text-xs font-mono text-[#334155] hover:text-[#0284c7]">
-                    <input type="checkbox" checked={layers.terrain} onChange={e => setLayers({...layers, terrain: e.target.checked})} className="rounded bg-[#f0f8ff] border-[#8ebdd4] text-[#0284c7] accent-[#0284c7] w-3 h-3" />
-                    <span>Terrain Surface</span>
-                  </label>
-                  <label className="flex items-center gap-2 cursor-pointer text-xs font-mono text-[#334155] hover:text-[#0284c7]">
-                    <input type="checkbox" checked={layers.rostrums} onChange={e => setLayers({...layers, rostrums: e.target.checked})} className="rounded bg-[#f0f8ff] border-[#8ebdd4] text-[#0284c7] accent-[#0284c7] w-3 h-3" />
-                    <span>Deck Rostrums</span>
-                  </label>
-                </div>
-              )}
-            </div>
-          </div>
-        )}
-
-        {/* SCREEN 3: BILL OF MATERIALS & STRUCTURAL ANALYSIS */}
-        {currentScreen === 'bom' && (
-          <div className="w-full h-full overflow-y-auto bg-[#f0f8ff]">
-            <div className="max-w-6xl mx-auto px-4 md:px-8 py-8 flex flex-col gap-6">
-              
-              <div className="flex flex-col lg:flex-row gap-6 items-start justify-between">
-                <div className="flex-1">
-                  <div className="inline-flex items-center gap-2 px-2.5 py-2 rounded-md bg-[#e0f2fe] border border-[#bae6fd] text-xs font-mono text-[#0284c7] font-semibold mb-2.5">
-                    <ShieldCheck size={14} className="text-[#0284c7]" />
-                    STRUCTURAL INTEGRITY & BILL OF MATERIALS
-                  </div>
-                  <h2 className="text-xl md:text-2xl font-mono font-bold text-[#0f172a] tracking-tight mb-1">
-                    Engineering Analysis & Parts Schedule
-                  </h2>
-                  <p className="text-[#64748b] text-xs max-w-xl leading-relaxed">
-                    Parametric structural load analysis (total dead/live weight, 3D Center of Gravity, and axial safety margins) alongside site-ready Kwikstage component inventory.
-                  </p>
-                </div>
-                <StatsPanel data={calculationResult} isValid={calculationResult.status === 'SOLVED'} />
-              </div>
-              
-              <div className="bg-[#ffffff] rounded-xl overflow-hidden border border-[#b8d4e3] shadow-xl">
-                <div className="px-5 py-3.5 border-b border-[#b8d4e3] flex justify-between items-center bg-[#f0f8ff]">
-                  <h3 className="text-xs font-mono font-bold text-[#0f172a] uppercase tracking-wider flex items-center gap-2">
-                    <span className="w-1.5 h-1.5 bg-[#0284c7] rounded-full"></span>
-                    Structural Analysis & Hardware Inventory
-                  </h3>
-                  <button 
-                    onClick={() => window.print()} 
-                    className="px-3.5 py-2 bg-[#ffffff] border border-[#8ebdd4] text-xs font-mono font-medium text-[#334155] hover:text-[#0284c7] hover:border-[#0284c7] transition-all rounded-md shadow-xs flex items-center gap-2"
+                  <button
+                    onClick={() => setCurrentScreen('model')}
+                    className="flex items-center gap-1.5 px-3 py-2 bg-[#e0f2fe] hover:bg-[#0284c7] text-[#0284c7] hover:text-white border border-[#bae6fd] rounded-md text-xs font-mono font-semibold transition-all cursor-pointer"
                   >
-                    Export Schedule / Print
+                    <span>3D Viewport</span>
+                    <ArrowRight size={12} />
                   </button>
                 </div>
-                <BillOfMaterials data={calculationResult} />
-              </div>
-            </div>
-          </div>
-        )}
 
+                <div className="bg-[#ffffff] rounded-xl shadow-xl border border-[#b8d4e3] overflow-hidden">
+                  <SpecificationsPanel 
+                    decks={decks} onDecksChange={setDecks} 
+                    ramps={ramps} onRampsChange={setRamps} 
+                    handrails={handrails} onHandrailsChange={setHandrails} 
+                    onComplete={() => setCurrentScreen('model')} 
+                  />
+                </div>
+              </div>
+            </motion.div>
+          )}
+
+          {/* SCREEN 2: FULL 3D MODEL STUDIO (ONLY ACTIVE/RENDERED WHEN IN 3D SCREEN) */}
+          {currentScreen === 'model' && (
+            <motion.div
+              key="model"
+              initial={{ opacity: 0, scale: 0.995 }}
+              animate={{ opacity: 1, scale: 1 }}
+              exit={{ opacity: 0, scale: 0.995 }}
+              transition={{ duration: 0.18, ease: 'easeOut' }}
+              className="w-full h-full relative overflow-hidden bg-[#ffffff]"
+            >
+              <ErrorBoundary fallbackTitle="3D Stage CAD Viewport Restored">
+                <Suspense fallback={<div className="flex w-full h-full items-center justify-center bg-[#f0f8ff] text-[#0284c7] font-mono text-sm tracking-wider">LOADING 3D ENGINE...</div>}>
+                  <DeckVisualizer3D 
+                    data={calculationResult} 
+                    onSelect={handleSelection} 
+                    selectionId={selection?.id || null} 
+                    layers={layers}
+                    active={is3DActive}
+                    onExport3dDrawing={() => setIsExport3dModalOpen(true)}
+                  />
+                </Suspense>
+              </ErrorBoundary>
+
+              {/* Decluttered Minimalist HUD Status Pill */}
+              <div className="absolute left-1/2 -translate-x-1/2 bottom-3 z-20 flex items-center gap-3 px-3 py-2 bg-white/90 backdrop-blur-md rounded-full border border-[#bae6fd] shadow-md pointer-events-auto text-xs font-mono text-[#0f172a]">
+                <div className="flex items-center gap-1.5">
+                  <span className={`w-1.5 h-1.5 rounded-full ${calculationResult.status === 'SOLVED' ? 'bg-emerald-500' : 'bg-[#0284c7]'}`}></span>
+                  <span className="font-semibold text-[#0f172a]">
+                    {calculationResult.status === 'SOLVED' ? 'Solved' : 'Review'}
+                  </span>
+                </div>
+                <span className="text-[#94a3b8]">|</span>
+                <span>{calculationResult.totalArea.toFixed(1)} m²</span>
+                <span className="text-[#94a3b8]">|</span>
+                <span>{calculationResult.calculatedFeetCount} Standards</span>
+              </div>
+
+              {/* Decluttered Layer Visibility Toggle Button with Small Icon */}
+              <div className="absolute right-3 top-3 z-20">
+                <button
+                  onClick={() => setIsLayersMenuOpen(!isLayersMenuOpen)}
+                  className="flex items-center gap-1.5 px-2.5 py-2 bg-white/90 backdrop-blur-md border border-[#bae6fd] rounded-md text-xs font-mono text-[#334155] hover:text-[#0284c7] hover:bg-[#f0f8ff] shadow-sm transition-all"
+                  title="Toggle Layers"
+                >
+                  <Layers size={12} className="text-[#0284c7]" />
+                  <span>Layers</span>
+                </button>
+
+                {isLayersMenuOpen && (
+                  <div className="absolute right-0 top-8 bg-white/95 backdrop-blur-md border border-[#bae6fd] p-2.5 rounded-lg flex flex-col gap-2 w-44 shadow-2xl animate-in fade-in duration-150">
+                    <span className="text-xs font-mono font-bold text-[#0f172a] uppercase tracking-wider border-b border-[#e2e8f0] pb-1">
+                      Scaffold Layers
+                    </span>
+                    <label className="flex items-center gap-2 cursor-pointer text-xs font-mono text-[#334155] hover:text-[#0284c7]">
+                      <input type="checkbox" checked={layers.structure} onChange={e => setLayers({...layers, structure: e.target.checked})} className="rounded bg-[#f0f8ff] border-[#8ebdd4] text-[#0284c7] accent-[#0284c7] w-3 h-3" />
+                      <span>Leg Structure</span>
+                    </label>
+                    <label className="flex items-center gap-2 cursor-pointer text-xs font-mono text-[#334155] hover:text-[#0284c7]">
+                      <input type="checkbox" checked={layers.ledgers} onChange={e => setLayers({...layers, ledgers: e.target.checked})} className="rounded bg-[#f0f8ff] border-[#8ebdd4] text-[#0284c7] accent-[#0284c7] w-3 h-3" />
+                      <span>Ledgers</span>
+                    </label>
+                    <label className="flex items-center gap-2 cursor-pointer text-xs font-mono text-[#334155] hover:text-[#0284c7]">
+                      <input type="checkbox" checked={layers.terrain} onChange={e => setLayers({...layers, terrain: e.target.checked})} className="rounded bg-[#f0f8ff] border-[#8ebdd4] text-[#0284c7] accent-[#0284c7] w-3 h-3" />
+                      <span>Terrain Surface</span>
+                    </label>
+                    <label className="flex items-center gap-2 cursor-pointer text-xs font-mono text-[#334155] hover:text-[#0284c7]">
+                      <input type="checkbox" checked={layers.rostrums} onChange={e => setLayers({...layers, rostrums: e.target.checked})} className="rounded bg-[#f0f8ff] border-[#8ebdd4] text-[#0284c7] accent-[#0284c7] w-3 h-3" />
+                      <span>Deck Rostrums</span>
+                    </label>
+                  </div>
+                )}
+              </div>
+            </motion.div>
+          )}
+
+          {/* SCREEN 3: BILL OF MATERIALS & STRUCTURAL ANALYSIS */}
+          {currentScreen === 'bom' && (
+            <motion.div
+              key="bom"
+              initial={{ opacity: 0, y: 8 }}
+              animate={{ opacity: 1, y: 0 }}
+              exit={{ opacity: 0, y: -8 }}
+              transition={{ duration: 0.2, ease: [0.22, 1, 0.36, 1] }}
+              className="w-full h-full overflow-y-auto bg-[#f0f8ff]"
+            >
+              <div className="max-w-6xl mx-auto px-4 md:px-8 py-8 flex flex-col gap-6">
+                
+                <div className="flex flex-col lg:flex-row gap-6 items-start justify-between">
+                  <div className="flex-1">
+                    <div className="inline-flex items-center gap-2 px-2.5 py-2 rounded-md bg-[#e0f2fe] border border-[#bae6fd] text-xs font-mono text-[#0284c7] font-semibold mb-2.5">
+                      <ShieldCheck size={14} className="text-[#0284c7]" />
+                      STRUCTURAL INTEGRITY & BILL OF MATERIALS
+                    </div>
+                    <h2 className="text-xl md:text-2xl font-mono font-bold text-[#0f172a] tracking-tight mb-1">
+                      Engineering Analysis & Parts Schedule
+                    </h2>
+                    <p className="text-[#64748b] text-xs max-w-xl leading-relaxed">
+                      Parametric structural load analysis (total dead/live weight, 3D Center of Gravity, and axial safety margins) alongside site-ready Kwikstage component inventory.
+                    </p>
+                  </div>
+                  <StatsPanel data={calculationResult} isValid={calculationResult.status === 'SOLVED'} />
+                </div>
+                
+                <div className="bg-[#ffffff] rounded-xl overflow-hidden border border-[#b8d4e3] shadow-xl">
+                  <div className="px-5 py-3.5 border-b border-[#b8d4e3] flex flex-wrap justify-between items-center bg-[#f0f8ff] gap-2">
+                    <h3 className="text-xs font-mono font-bold text-[#0f172a] uppercase tracking-wider flex items-center gap-2">
+                      <span className="w-1.5 h-1.5 bg-[#0284c7] rounded-full"></span>
+                      Structural Analysis & Hardware Inventory
+                    </h3>
+                    <div className="flex items-center gap-2">
+                      <button 
+                        onClick={() => setIsExport3dModalOpen(true)} 
+                        className="px-3.5 py-2 bg-[#0284c7] hover:bg-[#0369a1] text-xs font-mono font-bold text-white transition-all rounded-md shadow-xs flex items-center gap-1.5 cursor-pointer"
+                        title="Export 3D Drawing & Crucial Rigging Checkpoints for Crew"
+                      >
+                        <Printer size={13} />
+                        <span>Export 3D Drawing & Checkpoints</span>
+                      </button>
+                      <button 
+                        onClick={() => {
+                          exportBillOfMaterialsPdf(calculationResult, currentProject || undefined);
+                          showToast('Parts schedule PDF downloaded');
+                        }} 
+                        className="px-3.5 py-2 bg-[#ffffff] border border-[#8ebdd4] text-xs font-mono font-medium text-[#334155] hover:text-[#0284c7] hover:border-[#0284c7] transition-all rounded-md shadow-xs flex items-center gap-1.5 cursor-pointer"
+                        title="Download Parts Schedule & Bill of Materials PDF"
+                      >
+                        <ClipboardList size={13} className="text-[#0284c7]" />
+                        <span>Parts Schedule PDF</span>
+                      </button>
+                    </div>
+                  </div>
+                  <BillOfMaterials data={calculationResult} />
+                </div>
+              </div>
+            </motion.div>
+          )}
+        </AnimatePresence>
       </main>
 
       {/* MOBILE BOTTOM NAVIGATION BAR */}
-      <nav className="sm:hidden shrink-0 flex items-center justify-around bg-[#ffffff] border-t border-[#b8d4e3] px-2 py-2 pb-safe z-50 shadow-[0_-4px_10px_rgba(0,0,0,0.06)]">
-        <button
-          onClick={() => setCurrentScreen('stats')}
-          className={`flex flex-col items-center gap-1 p-2 rounded-lg flex-1 transition-all ${
-            currentScreen === 'stats'
-              ? 'text-[#0284c7] bg-[#e0f2fe]'
-              : 'text-[#64748b] hover:text-[#475569]'
-          }`}
-        >
-          <FolderCheck size={18} />
-          <span className="text-xs font-mono font-medium">Stats</span>
-        </button>
-
-        <button
-          onClick={() => setCurrentScreen('specs')}
-          className={`flex flex-col items-center gap-1 p-2 rounded-lg flex-1 transition-all ${
-            currentScreen === 'specs'
-              ? 'text-[#0284c7] bg-[#e0f2fe]'
-              : 'text-[#64748b] hover:text-[#475569]'
-          }`}
-        >
-          <Sliders size={18} />
-          <span className="text-xs font-mono font-medium">Specs</span>
-        </button>
-
-        <button
-          onClick={() => setCurrentScreen('model')}
-          className={`flex flex-col items-center gap-1 p-2 rounded-lg flex-1 transition-all ${
-            currentScreen === 'model'
-              ? 'text-[#0284c7] bg-[#e0f2fe]'
-              : 'text-[#64748b] hover:text-[#475569]'
-          }`}
-        >
-          <Box size={18} />
-          <span className="text-xs font-mono font-medium">3D View</span>
-        </button>
-
-        <button
-          onClick={() => setCurrentScreen('bom')}
-          className={`flex flex-col items-center gap-1 p-2 rounded-lg flex-1 transition-all ${
-            currentScreen === 'bom'
-              ? 'text-[#0284c7] bg-[#e0f2fe]'
-              : 'text-[#64748b] hover:text-[#475569]'
-          }`}
-        >
-          <ClipboardList size={18} />
-          <span className="text-xs font-mono font-medium">BOM</span>
-        </button>
+      <nav 
+        aria-label="Mobile screen switcher"
+        className="sm:hidden shrink-0 flex items-center justify-around bg-[#ffffff] border-t border-[#b8d4e3] px-2 py-1.5 pb-safe z-50 shadow-[0_-4px_10px_rgba(0,0,0,0.06)]"
+      >
+        {SCREENS.map((screen) => {
+          const isActive = currentScreen === screen.id;
+          const Icon = screen.icon;
+          return (
+            <motion.button
+              key={screen.id}
+              onClick={() => setCurrentScreen(screen.id)}
+              whileTap={{ scale: 0.94 }}
+              className={`relative flex flex-col items-center gap-1 p-2 rounded-lg flex-1 transition-colors cursor-pointer select-none ${
+                isActive ? 'text-[#0284c7] font-semibold' : 'text-[#64748b] hover:text-[#475569]'
+              }`}
+            >
+              {isActive && (
+                <motion.div
+                  layoutId="mobile-active-screen-indicator"
+                  className="absolute inset-0 bg-[#e0f2fe] rounded-lg z-0"
+                  transition={{
+                    type: 'spring',
+                    stiffness: 450,
+                    damping: 32,
+                    mass: 0.8
+                  }}
+                />
+              )}
+              <span className="relative z-10">
+                <Icon size={18} />
+              </span>
+              <span className="relative z-10 text-xs font-mono font-medium">
+                {screen.shortLabel}
+              </span>
+            </motion.button>
+          );
+        })}
       </nav>
 
       {/* DEDICATED PROJECT STORAGE & SHARING MODAL */}
@@ -754,6 +833,18 @@ const App: React.FC = () => {
         onUpdateApplied={() => {
           setOtaUpdateAvailable(false);
           showToast('Applying Netlify OTA update...');
+        }}
+      />
+
+      {/* 3D DRAWING & CREW CHECKPOINTS EXPORT MODAL */}
+      <Export3dDrawingModal
+        isOpen={isExport3dModalOpen}
+        onClose={() => setIsExport3dModalOpen(false)}
+        data={calculationResult}
+        project={currentProject}
+        onNavigateTo3D={() => {
+          setIsExport3dModalOpen(false);
+          setCurrentScreen('model');
         }}
       />
 

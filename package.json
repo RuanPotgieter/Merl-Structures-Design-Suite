@@ -17,6 +17,7 @@
     "@react-three/postprocessing": "2.16.2",
     "@tailwindcss/vite": "^4.2.1",
     "firebase": "^12.15.0",
+    "framer-motion": "^14.0.0",
     "jspdf": "^4.2.1",
     "jspdf-autotable": "^5.0.7",
     "lucide-react": "^0.577.0",

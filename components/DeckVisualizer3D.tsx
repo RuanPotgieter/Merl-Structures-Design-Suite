@@ -10,7 +10,7 @@ declare global {
   }
 }
 import { OrbitControls, Grid, ContactShadows, GizmoHelper, GizmoViewport, Edges } from '@react-three/drei';
-import { Box, Eye, Square, Columns, RotateCcw, Compass, ArrowUpFromLine, ArrowDownToLine, Maximize2 } from 'lucide-react';
+import { Box, Eye, Square, Columns, RotateCcw, Compass, ArrowUpFromLine, ArrowDownToLine, Maximize2, Printer, Layers, FileCheck2 } from 'lucide-react';
 import { DeckCalculationResult, Rostrum, Foot, TerrainConfig, Ledger, RampPlate } from '../types';
 import { 
   COMPONENT_COLORS, 
@@ -202,18 +202,28 @@ const createBasejackHandleGeometry = () => {
 };
 const BASEJACK_HANDLE_GEO = createBasejackHandleGeometry();
 
-// Origin Datum Indicator: Always at Bottom Right as requested by user
+// Origin Datum Indicator: Always anchored at Bottom Right corner as requested by user
 const OriginMarker: React.FC<{ terrain: TerrainConfig; dimensions: any; feet?: Foot[] }> = ({ terrain, dimensions, feet }) => {
-  // Origin is always at the bottom right corner: X = dimensions.width, Z = 0
-  const posX = Number(dimensions?.width) || 0;
-  const posZ = 0;
-  
-  // Find ground height at bottom-right corner
+  // In unified CAD coordinates, the Bottom-Right datum (0,0) is at the rightmost X and frontmost Z (highest x, lowest y in foot coords)
+  let posX = 0;
+  let posZ = 0;
   let groundY = 0;
+  
   if (feet && feet.length > 0) {
-    const brFoot = feet.find(f => Math.abs(f.position.x - posX) < 0.15 && Math.abs(f.position.y - posZ) < 0.15);
-    if (brFoot) {
-      groundY = brFoot.groundHeight;
+    let bestFoot: Foot | undefined;
+    let bestScore = -Infinity;
+    for (const f of feet) {
+      // Prioritize highest x (right edge) and lowest y (front edge)
+      const score = f.position.x - f.position.y * 1.5;
+      if (score > bestScore) {
+        bestScore = score;
+        bestFoot = f;
+      }
+    }
+    if (bestFoot) {
+      posX = bestFoot.position.x;
+      posZ = bestFoot.position.y;
+      groundY = bestFoot.groundHeight;
     } else {
       groundY = getGroundYAt(posX, posZ, terrain, dimensions?.width || 1, dimensions?.depth || 1);
     }
@@ -237,8 +247,8 @@ const OriginMarker: React.FC<{ terrain: TerrainConfig; dimensions: any; feet?: F
 
       {/* Origin Concentric Ground Ring */}
       <mesh position={[0, 0.005, 0]} rotation={[-Math.PI / 2, 0, 0]}>
-        <ringGeometry args={[0.12, 0.22, 32]} />
-        <meshBasicMaterial color="#ef4444" side={THREE.DoubleSide} transparent opacity={0.7} />
+        <ringGeometry args={[0.12, 0.24, 32]} />
+        <meshBasicMaterial color="#ef4444" side={THREE.DoubleSide} transparent opacity={0.75} />
       </mesh>
 
       {/* Center Anchor Pin */}
@@ -250,35 +260,71 @@ const OriginMarker: React.FC<{ terrain: TerrainConfig; dimensions: any; feet?: F
   );
 };
 
-const TerrainMesh: React.FC<{ terrain: TerrainConfig, dimensions: any, rostrums: any[] }> = ({ terrain, dimensions, rostrums }) => {
-  const segments = 48;
-  
-  const geometry = useMemo(() => {
-    // Provide a neat 8m apron around the deck rather than a sprawling 250m plane
-    const margin = 8;
-    const w = Math.max(dimensions.width + margin * 2, 24);
-    const d = Math.max(dimensions.depth + margin * 2, 24);
-    const geo = new THREE.PlaneGeometry(w, d, segments, segments);
-    
-    // Center the plane geometry's center on the deck's center in X and Z
-    // width/2 for X, -depth/2 for Y (which maps to +Z in world)
-    geo.translate(dimensions.width / 2, -dimensions.depth / 2, 0);
+// Stage Perimeter Shadecloth Skirting to Conceal Scaffolding Understructure
+const ShadeclothGroup: React.FC<{ 
+  dimensions: { width: number; depth: number }; 
+  deckHeight: number;
+  rostrums?: Rostrum[];
+}> = ({ dimensions, deckHeight }) => {
+  const w = dimensions.width || 4.8;
+  const d = dimensions.depth || 4.8;
+  const h = Math.max(0.3, deckHeight || 2.0);
 
-    const pos = geo.attributes.position;
-    for (let i = 0; i < pos.count; i++) {
-      const x = pos.getX(i);
-      const worldZ = -pos.getY(i);
-      let groundY = getGroundYAt(x, worldZ, terrain, dimensions.width, dimensions.depth);
-      
-      pos.setZ(i, groundY - 0.02);
-    }
-    geo.computeVertexNormals();
-    return geo;
-  }, [terrain, dimensions]);
-
+  // Deck spans X from -w to 0, Z from 0 to d
   return (
-    <group rotation={[-Math.PI / 2, 0, 0]}>
-      <mesh geometry={geometry} material={MAT_TERRAIN} receiveShadow />
+    <group position={[0, 0, 0]}>
+      {/* Front Face (Facing audience) */}
+      <mesh position={[-w / 2, h / 2, 0]} castShadow receiveShadow>
+        <planeGeometry args={[w, h]} />
+        <meshStandardMaterial
+          color="#0f172a"
+          roughness={0.92}
+          metalness={0.08}
+          side={THREE.DoubleSide}
+          transparent
+          opacity={0.96}
+        />
+      </mesh>
+
+      {/* Right Face (Along Bottom-Right origin side) */}
+      <mesh position={[0, h / 2, d / 2]} rotation={[0, Math.PI / 2, 0]} castShadow receiveShadow>
+        <planeGeometry args={[d, h]} />
+        <meshStandardMaterial
+          color="#111827"
+          roughness={0.92}
+          metalness={0.08}
+          side={THREE.DoubleSide}
+          transparent
+          opacity={0.96}
+        />
+      </mesh>
+
+      {/* Left Face */}
+      <mesh position={[-w, h / 2, d / 2]} rotation={[0, Math.PI / 2, 0]} castShadow receiveShadow>
+        <planeGeometry args={[d, h]} />
+        <meshStandardMaterial
+          color="#111827"
+          roughness={0.92}
+          metalness={0.08}
+          side={THREE.DoubleSide}
+          transparent
+          opacity={0.96}
+        />
+      </mesh>
+
+      {/* Top Hem Trim (velcro/cable border) */}
+      <mesh position={[-w / 2, h - 0.015, 0]}>
+        <boxGeometry args={[w + 0.02, 0.03, 0.03]} />
+        <meshBasicMaterial color="#020617" />
+      </mesh>
+      <mesh position={[0, h - 0.015, d / 2]} rotation={[0, Math.PI / 2, 0]}>
+        <boxGeometry args={[d + 0.02, 0.03, 0.03]} />
+        <meshBasicMaterial color="#020617" />
+      </mesh>
+      <mesh position={[-w, h - 0.015, d / 2]} rotation={[0, Math.PI / 2, 0]}>
+        <boxGeometry args={[d + 0.02, 0.03, 0.03]} />
+        <meshBasicMaterial color="#020617" />
+      </mesh>
     </group>
   );
 };
@@ -804,12 +850,16 @@ const RostrumGroup: React.FC<{ rostrums: Rostrum[], terrain: TerrainConfig }> = 
 
 export interface DeckVisualizer3DProps {
   data: DeckCalculationResult;
-  onSelect: (type: string | null, id: string | null, data: any | null) => void;
-  selectionId: string | null;
-  layers: { structure: boolean; ledgers: boolean; terrain: boolean; rostrums: boolean };
+  onSelect?: (type: string | null, id: string | null, data: any | null) => void;
+  selectionId?: string | null;
+  layers?: { structure: boolean; ledgers: boolean; terrain: boolean; rostrums: boolean };
   active?: boolean;
   snapToGrid?: boolean;
   onToggleSnapToGrid?: (enabled: boolean) => void;
+  onExport3dDrawing?: () => void;
+  onClientApprovalExport?: () => void;
+  isShadecloth?: boolean;
+  onToggleShadecloth?: (enabled: boolean) => void;
 }
 
 export const RampPlateGroup: React.FC<{ rampPlates: RampPlate[] }> = ({ rampPlates }) => {
@@ -843,7 +893,8 @@ export const DeckVisualizer3D: React.FC<DeckVisualizer3DProps> = React.memo(({
   layers, 
   active = true,
   snapToGrid: propSnapToGrid,
-  onToggleSnapToGrid: propOnToggleSnapToGrid 
+  onToggleSnapToGrid: propOnToggleSnapToGrid,
+  onExport3dDrawing
 }) => {
   const BG_COLOR = "#ffffff"; // Clean architectural light grey viewport background
   const controlsRef = useRef<any>(null);
@@ -1038,6 +1089,20 @@ export const DeckVisualizer3D: React.FC<DeckVisualizer3DProps> = React.memo(({
         >
           BTM
         </button>
+
+        {onExport3dDrawing && (
+          <>
+            <div className="h-4 w-px bg-[#b8d4e3] mx-1" />
+            <button 
+              onClick={onExport3dDrawing} 
+              className="flex items-center gap-1.5 px-2.5 py-1.5 rounded text-xs font-mono font-bold text-white bg-[#0284c7] hover:bg-[#0369a1] transition-all shadow-xs"
+              title="Export & Print 3D Drawing with Crucial Checkpoints for Crew"
+            >
+              <Printer size={12} />
+              <span>Export 3D Drawing</span>
+            </button>
+          </>
+        )}
       </div>
 
       {/* Floating Quick Action Menu (One-click toggles for Wireframe, Snap to Grid, Camera Reset, Turntable, Shadows) */}
@@ -1073,6 +1138,7 @@ export const DeckVisualizer3D: React.FC<DeckVisualizer3DProps> = React.memo(({
             return !prev;
           });
         }}
+        onExport3dDrawing={onExport3dDrawing}
       />
 
       {/* Floating Quick Action Feedback Toast */}
@@ -1090,7 +1156,8 @@ export const DeckVisualizer3D: React.FC<DeckVisualizer3DProps> = React.memo(({
         camera={{ position: [-initialDistance, initialDistance, -initialDistance], fov: 30, far: 5000 }}
         gl={{ 
           antialias: true,
-          powerPreference: "high-performance" 
+          powerPreference: "high-performance",
+          preserveDrawingBuffer: true
         }}
       >
         <color attach="background" args={[BG_COLOR]} />
@@ -1123,14 +1190,17 @@ export const DeckVisualizer3D: React.FC<DeckVisualizer3DProps> = React.memo(({
         {/* Architectural Grid Ground Plane - Highlights 1.2m modular bays when snap to grid is active */}
         <Grid 
           position={[0, -0.005, 0]} 
-          args={[120, 120]} 
+          args={[
+            Math.max(200, Math.max(data.dimensions?.width || 30, data.dimensions?.depth || 30) * 3),
+            Math.max(200, Math.max(data.dimensions?.width || 30, data.dimensions?.depth || 30) * 3)
+          ]} 
           cellSize={1.2} 
           cellThickness={snapToGrid ? 1.4 : 0.8} 
           cellColor={snapToGrid ? "#7dd3fc" : "#cbd5e1"} 
           sectionSize={2.4} 
           sectionThickness={snapToGrid ? 2.0 : 1.2} 
           sectionColor={snapToGrid ? "#0284c7" : "#94a3b8"} 
-          fadeDistance={95} 
+          fadeDistance={Math.max(120, Math.max(data.dimensions?.width || 30, data.dimensions?.depth || 30) * 2.2)} 
           fadeStrength={1.2} 
           infiniteGrid 
         />
